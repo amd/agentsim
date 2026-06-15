@@ -3,23 +3,9 @@ import os
 import pandas as pd
 import json
 
-
-def get_sessions_list(return_as_json=True):
-    user_dir = os.path.expanduser("~")
-    claude_dir = os.path.join(user_dir, ".claude", "projects")
-    sessions_pattern = os.path.join(claude_dir, "*", "*.jsonl")
-
-    session_paths = glob.glob(sessions_pattern)
-    sessions_df = pd.DataFrame(session_paths)
-    sessions_df.columns = ["filepath"]
-    sessions_df["id"] = [os.path.basename(path).split(".")[0] for path in session_paths]
-    sessions_df["project"] = [os.path.basename(os.path.dirname(path)) for path in session_paths]
-    sessions_df["project"] = sessions_df["project"].str.replace("--", "-").str.replace("-", "/")
-
-    # parse session titles
-    decoder = json.JSONDecoder()
-
+def parse_session_file(session_path: str):
     def parse_concatenated_json(content):
+        decoder = json.JSONDecoder()
         objects = []
         idx = 0
         while idx < len(content):
@@ -32,13 +18,29 @@ def get_sessions_list(return_as_json=True):
             idx = end
         return objects
 
+    with open(session_path, "r", encoding="utf-8") as file:
+        content = file.read()
+
+    return parse_concatenated_json(content)
+
+def get_sessions_list(return_as_json=True):
+    # compute base info
+    user_dir = os.path.expanduser("~")
+    claude_dir = os.path.join(user_dir, ".claude", "projects")
+    sessions_pattern = os.path.join(claude_dir, "*", "*.jsonl")
+
+    session_paths = glob.glob(sessions_pattern)
+    sessions_df = pd.DataFrame(session_paths)
+    sessions_df.columns = ["filepath"]
+    sessions_df["id"] = [os.path.basename(path).split(".")[0] for path in session_paths]
+    sessions_df["project"] = [os.path.basename(os.path.dirname(path)) for path in session_paths]
+    sessions_df["project"] = sessions_df["project"].str.replace("--", "-").str.replace("-", "/")
+
+    # append titles
     sessions_df["title"] = None
     for session in session_paths:
-        with open(session, "r", encoding="utf-8") as file:
-            content = file.read()
-
         try:
-            records = parse_concatenated_json(content)
+            records = parse_session_file(session)
         except json.JSONDecodeError as e:
             print(f"Failed to parse {session}: {e}")
             continue
