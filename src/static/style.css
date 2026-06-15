@@ -2,9 +2,16 @@ body { margin: 0; font-family: sans-serif; display: flex; height: 100vh; }
 #sidebar { width: 320px; border-right: 1px solid #ddd; overflow-y: auto; }
 #sidebar h2 { padding: 12px 16px; margin: 0; font-size: 14px; color: #666; }
 .group-header { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #999; background: #fafafa; border-top: 1px solid #eee; border-bottom: 1px solid #eee; }
-.item { padding: 10px 16px; cursor: pointer; border-bottom: 1px solid #f0f0f0; font-size: 14px; }
+.item { display: flex; align-items: center; padding: 10px 16px; cursor: pointer; border-bottom: 1px solid #f0f0f0; font-size: 14px; }
 .item:hover { background: #f5f5f5; }
 .item.active { background: #e8f0fe; }
+.item-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.item-menu-btn { flex: none; background: none; border: none; cursor: pointer; font-size: 18px; line-height: 1; color: #999; padding: 0 4px; visibility: hidden; }
+.item:hover .item-menu-btn { visibility: visible; }
+.item-menu-btn:hover { color: #333; }
+.item-menu { position: fixed; background: #fff; border: 1px solid #ccc; border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); z-index: 1000; font-size: 13px; }
+.item-menu-option { padding: 8px 14px; cursor: pointer; white-space: nowrap; }
+.item-menu-option:hover { background: #f0f0f0; }
 #detail { flex: 1; padding: 24px; overflow-y: auto; }
 pre { background: #f7f7f7; padding: 16px; border-radius: 6px; white-space: pre-wrap; word-break: break-word; }
 #timeline { border: 1px solid #ddd; }

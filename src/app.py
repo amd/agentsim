@@ -1,5 +1,6 @@
 import os
 import sys
+import subprocess
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, BASE_DIR)
@@ -8,7 +9,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from data import get_sessions_list, get_session_timeline
+from data import get_sessions_list, get_session_timeline, get_session_path
 
 app = FastAPI()
 app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static")
@@ -33,6 +34,22 @@ def api_session_timeline(session_id: str):
         return get_session_timeline(session_id)
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail="session not found")
+
+
+@app.post("/api/sessions/{session_id}/open")
+def api_open_session(session_id: str):
+    try:
+        path = os.path.normpath(get_session_path(session_id))
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="session not found")
+
+    if sys.platform.startswith("win"):
+        subprocess.Popen(["explorer", "/select,", path])
+    elif sys.platform == "darwin":
+        subprocess.Popen(["open", "-R", path])
+    else:
+        subprocess.Popen(["xdg-open", os.path.dirname(path)])
+    return {"ok": True}
 
 
 @app.get("/")

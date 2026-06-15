@@ -37,11 +37,52 @@ async function loadSidebar() {
         for (const s of items) {
             const div = document.createElement('div');
             div.className = 'item';
-            div.textContent = s.title || s.id;
-            div.onclick = () => showDetail(s.id, div);
+
+            const label = document.createElement('span');
+            label.className = 'item-label';
+            label.textContent = s.title || s.id;
+            label.onclick = () => showDetail(s.id, div);
+
+            const menuBtn = document.createElement('button');
+            menuBtn.className = 'item-menu-btn';
+            menuBtn.textContent = '⋯';   // horizontal ellipsis
+            menuBtn.onclick = e => showItemMenu(e, s);
+
+            div.appendChild(label);
+            div.appendChild(menuBtn);
             sidebar.appendChild(div);
         }
     }
+}
+
+let openMenu = null;
+
+function closeItemMenu() {
+    if (openMenu) { openMenu.remove(); openMenu = null; }
+}
+document.addEventListener('click', closeItemMenu);
+
+function showItemMenu(e, s) {
+    e.stopPropagation();   // don't trigger the document-level close or the label click
+    closeItemMenu();
+
+    const menu = document.createElement('div');
+    menu.className = 'item-menu';
+    menu.style.top = e.clientY + 'px';
+    menu.style.left = e.clientX + 'px';
+
+    const opt = document.createElement('div');
+    opt.className = 'item-menu-option';
+    opt.textContent = 'Open in file explorer';
+    opt.onclick = ev => {
+        ev.stopPropagation();
+        fetch('/api/sessions/' + s.id + '/open', { method: 'POST' });
+        closeItemMenu();
+    };
+
+    menu.appendChild(opt);
+    document.body.appendChild(menu);
+    openMenu = menu;
 }
 
 function escapeHtml(s) {
