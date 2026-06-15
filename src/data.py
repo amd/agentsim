@@ -68,6 +68,19 @@ def get_sessions_list(return_as_json=True):
     else:
         return sessions_df
 
+def get_session_path(session_id: str):
+    return session path
+
+def get_session_timeline(session_id: str, response_message_index=None):
+    session_data = parse_session_file(get_session_path(session_id))
+    session_timeline = []
+    # each event has surface level data: start_time, end_time, type, title
+    def get_session_timeblocks():
+        ...
+
+    return session_timeline
+
+
 if __name__ == "__main__":
     sessions = get_sessions_list()
     print(json.dumps(sessions, indent=2))
