@@ -66,17 +66,27 @@ function renderTimelineTable(blocks) {
 
 let timelineInstance = null;
 
+// each distinct tool name gets its own lane (e.g. Bash, WebSearch), keyed "tool:<name>"
+function toolGroupId(b) {
+    return 'tool:' + (b.title || 'tool');
+}
+
 // parent sections (collapsible) and the child lanes nested under each.
 // groups MUST be a vis.DataSet for collapse/expand to work.
-function buildGroups() {
+function buildGroups(blocks) {
+    const toolNames = [...new Set(
+        blocks.filter(b => b.type === 'tool_call').map(b => b.title || 'tool')
+    )].sort();
+    const toolGroups = toolNames.map(name => ({ id: 'tool:' + name, content: name }));
+
     return new vis.DataSet([
         { id: 'agent', content: 'Agent', nestedGroups: ['thinking', 'assistant_message'] },
         { id: 'thinking', content: 'Thinking' },
         { id: 'assistant_message', content: 'Assistant' },
         { id: 'user', content: 'User', nestedGroups: ['user_message'] },
         { id: 'user_message', content: 'Message' },
-        { id: 'tools', content: 'Tools', nestedGroups: ['tool_call', 'attachment'] },
-        { id: 'tool_call', content: 'Tool Call' },
+        { id: 'tools', content: 'Tools', nestedGroups: [...toolGroups.map(g => g.id), 'attachment'] },
+        ...toolGroups,
         { id: 'attachment', content: 'Attachment' },
     ]);
 }
@@ -88,7 +98,6 @@ function renderTimeline(container, blocks) {
     }
 
     const items = new vis.DataSet(blocks.map((b, i) => {
-        const text = typeof b.content === 'string' ? b.content : JSON.stringify(b.content, null, 2);
         // enforce a minimum duration so zero-length blocks (e.g. attachments) stay visible
         let end = b.end_time;
         if (!end || end === b.start_time) {
@@ -96,29 +105,37 @@ function renderTimeline(container, blocks) {
         }
         return {
             id: i,
-            group: b.type,
+            group: b.type === 'tool_call' ? toolGroupId(b) : b.type,
             content: escapeHtml(b.title || b.type),
             start: b.start_time,
             end: end,
             className: 'tl-' + b.type,
-            title: '<b>' + escapeHtml(b.type) + '</b><br><pre>' + escapeHtml(text.slice(0, 1000)) + '</pre>',
         };
     }));
 
-    const groups = buildGroups();
+    const groups = buildGroups(blocks);
 
     const options = {
         stack: true,
         horizontalScroll: true,   // mouse wheel pans horizontally
         zoomKey: 'ctrlKey',       // ctrl + wheel zooms
         margin: { item: 6 },
-        tooltip: { followMouse: true },
-        minHeight: 300,           // grow to fit content, bounded so it stays in the container
-        maxHeight: 600,           // taller sessions get a vertical scrollbar instead of overflowing
         orientation: { axis: 'top' },
+        // height set dynamically below to fill the browser viewport
     };
 
     timelineInstance = new vis.Timeline(container, items, groups, options);
+
+    // size the timeline to fill the viewport from its top edge down, and keep it
+    // in sync on window resize. taller sessions scroll vertically inside it.
+    const fillViewport = () => {
+        const top = container.getBoundingClientRect().top;
+        const height = Math.max(300, window.innerHeight - top - 16);
+        timelineInstance.setOptions({ height });
+    };
+    fillViewport();
+    window.onresize = fillViewport;
+
     requestAnimationFrame(() => timelineInstance.fit());  // fit after the DOM settles
 
     timelineInstance.on('select', props => {

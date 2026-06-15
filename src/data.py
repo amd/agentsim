@@ -148,9 +148,12 @@ def get_session_timeline(session_id: str):
                     blk = {"start_time": start_for(parent, timestamp), "end_time": timestamp,
                            "type": "assistant_message", "title": "Assistant", "content": block.get("text")}
                 elif btype == "tool_use":
+                    # a tool starts when it is dispatched (this record's timestamp) and ends at
+                    # its tool_result. tools dispatched together share a timestamp, so parallel
+                    # tool calls overlap instead of chaining sequentially via parentUuid.
                     result = tool_results.get(block.get("id"), {})
                     end = result.get("timestamp", timestamp)
-                    blk = {"start_time": start_for(parent, timestamp), "end_time": end,
+                    blk = {"start_time": timestamp, "end_time": end,
                            "type": "tool_call", "title": block.get("name"),
                            "content": {"input": block.get("input"), "result": result.get("content"),
                                        "is_error": result.get("is_error", False)}}
