@@ -36,8 +36,10 @@ def get_sessions_list(return_as_json=True):
     sessions_df["project"] = [os.path.basename(os.path.dirname(path)) for path in session_paths]
     sessions_df["project"] = sessions_df["project"].str.replace("--", "-").str.replace("-", "/")
 
-    # append titles
+    # append titles and timestamps
     sessions_df["title"] = None
+    sessions_df["creation_date"] = None
+    sessions_df["last_modified"] = None
     for session in session_paths:
         try:
             records = parse_session_file(session)
@@ -45,10 +47,21 @@ def get_sessions_list(return_as_json=True):
             print(f"Failed to parse {session}: {e}")
             continue
 
+        title = None
+        creation_date = None
+        last_modified = None
         for record in records:
             if record.get("type") == "ai-title":
-                mask = sessions_df["id"] == os.path.basename(session).split(".")[0]
-                sessions_df.loc[mask, "title"] = record.get("aiTitle")
+                title = record.get("aiTitle")
+            elif record.get("type") == "user" and creation_date is None:
+                creation_date = record.get("timestamp")
+            elif record.get("type") == "assistant" and record.get("timestamp"):
+                last_modified = record.get("timestamp")
+
+        mask = sessions_df["id"] == os.path.basename(session).split(".")[0]
+        sessions_df.loc[mask, "title"] = title
+        sessions_df.loc[mask, "creation_date"] = creation_date
+        sessions_df.loc[mask, "last_modified"] = last_modified
 
     if return_as_json:
         return sessions_df.to_dict(orient="records")
