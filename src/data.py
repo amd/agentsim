@@ -69,16 +69,88 @@ def get_sessions_list(return_as_json=True):
         return sessions_df
 
 def get_session_path(session_id: str):
-    return session path
+    user_dir = os.path.expanduser("~")
+    claude_dir = os.path.join(user_dir, ".claude", "projects")
+    matches = glob.glob(os.path.join(claude_dir, "*", session_id + ".jsonl"))
+    if not matches:
+        raise FileNotFoundError(f"session {session_id} not found")
+    return matches[0]
 
-def get_session_timeline(session_id: str, response_message_index=None):
-    session_data = parse_session_file(get_session_path(session_id))
-    session_timeline = []
-    # each event has surface level data: start_time, end_time, type, title
-    def get_session_timeblocks():
-        ...
+def get_session_timeline(session_id: str):
+    records = parse_session_file(get_session_path(session_id))
 
-    return session_timeline
+    # index tool results by tool_use_id so each tool call can find its output + end time
+    tool_results = {}
+    for record in records:
+        message = record.get("message") or {}
+        content = message.get("content")
+        if record.get("type") == "user" and isinstance(content, list):
+            for block in content:
+                if block.get("type") == "tool_result":
+                    tool_results[block.get("tool_use_id")] = {
+                        "timestamp": record.get("timestamp"),
+                        "content": block.get("content"),
+                        "is_error": block.get("is_error", False),
+                    }
+
+    # flatten user/assistant messages and tool calls into ordered timeline blocks
+    timeline = []
+    for record in records:
+        rtype = record.get("type")
+        timestamp = record.get("timestamp")
+        message = record.get("message") or {}
+        content = message.get("content")
+
+        if rtype == "user":
+            if isinstance(content, str):
+                timeline.append({
+                    "start_time": timestamp,
+                    "end_time": None,
+                    "type": "user_message",
+                    "title": "User",
+                    "content": content,
+                })
+            # tool_result blocks are attached to their tool call below, so skip here
+
+        elif rtype == "assistant" and isinstance(content, list):
+            for block in content:
+                btype = block.get("type")
+                if btype == "thinking":
+                    timeline.append({
+                        "start_time": timestamp,
+                        "end_time": None,
+                        "type": "thinking",
+                        "title": "Thinking",
+                        "content": block.get("thinking"),
+                    })
+                elif btype == "text":
+                    timeline.append({
+                        "start_time": timestamp,
+                        "end_time": None,
+                        "type": "assistant_message",
+                        "title": "Assistant",
+                        "content": block.get("text"),
+                    })
+                elif btype == "tool_use":
+                    result = tool_results.get(block.get("id"), {})
+                    timeline.append({
+                        "start_time": timestamp,
+                        "end_time": result.get("timestamp", timestamp),
+                        "type": "tool_call",
+                        "title": block.get("name"),
+                        "content": {
+                            "input": block.get("input"),
+                            "result": result.get("content"),
+                            "is_error": result.get("is_error", False),
+                        },
+                    })
+
+    # fill missing end times (messages/thinking) with the next block's start time
+    for i, block in enumerate(timeline):
+        if block["end_time"] is None:
+            block["end_time"] = timeline[i + 1]["start_time"] if i + 1 < len(timeline) else block["start_time"]
+
+    return timeline
 
 
 if __name__ == "__main__":

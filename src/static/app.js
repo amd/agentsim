@@ -44,12 +44,41 @@ async function loadSidebar() {
     }
 }
 
+function escapeHtml(s) {
+    return String(s ?? '').replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+}
+
+function renderTimeline(timeline) {
+    const rows = timeline.map(b => {
+        const content = typeof b.content === 'string' ? b.content : JSON.stringify(b.content);
+        return '<tr>' +
+            '<td>' + escapeHtml(b.start_time) + '</td>' +
+            '<td>' + escapeHtml(b.end_time) + '</td>' +
+            '<td>' + escapeHtml(b.type) + '</td>' +
+            '<td>' + escapeHtml(b.title) + '</td>' +
+            '<td><pre>' + escapeHtml(content) + '</pre></td>' +
+            '</tr>';
+    }).join('');
+    return '<table class="timeline">' +
+        '<thead><tr><th>Start</th><th>End</th><th>Type</th><th>Title</th><th>Content</th></tr></thead>' +
+        '<tbody>' + rows + '</tbody></table>';
+}
+
 async function showDetail(id, el) {
     document.querySelectorAll('.item').forEach(i => i.classList.remove('active'));
     el.classList.add('active');
-    const data = await (await fetch('/api/sessions/' + id)).json();
+
+    const [dataRes, timelineRes] = await Promise.all([
+        fetch('/api/sessions/' + id),
+        fetch('/api/sessions/' + id + '/timeline'),
+    ]);
+    const data = await dataRes.json();
+    const timeline = await timelineRes.json();
+
     document.getElementById('detail').innerHTML =
-        '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+        '<pre>' + JSON.stringify(data, null, 2) + '</pre>' +
+        '<h3>Timeline</h3>' +
+        renderTimeline(timeline);
 }
 
 loadSidebar();
