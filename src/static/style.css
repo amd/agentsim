@@ -21,9 +21,9 @@ table.timeline td pre { margin: 0; padding: 8px; max-height: 200px; overflow: au
 table.timeline td:nth-child(1), table.timeline td:nth-child(2) { white-space: nowrap; font-family: monospace; font-size: 12px; }
 
 /* color code timeline items by block type */
-.vis-item.tl-user_message { background: #e3f2fd; border-color: #64b5f6; }
-.vis-item.tl-assistant_message { background: #e8f5e9; border-color: #66bb6a; }
-.vis-item.tl-thinking { background: #f3e5f5; border-color: #ba68c8; }
-.vis-item.tl-tool_call { background: #fff3e0; border-color: #ffb74d; }
-.vis-item.tl-tool_call.vis-selected { background: #ffe0b2; }
-.vis-item.tl-attachment { background: #eceff1; border-color: #90a4ae; }
+.vis-item.tl-user_message { background: #dbeafe; border-color: #3b82f6; }
+.vis-item.tl-assistant_message { background: #d1fae5; border-color: #10b981; }
+.vis-item.tl-thinking { background: #e8d5ff; border-color: #a855f7; }
+.vis-item.tl-tool_call { background: #fef3c7; border-color: #f59e0b; }
+.vis-item.tl-tool_call.vis-selected { background: #fde68a; }
+.vis-item.tl-attachment { background: #f3f4f6; border-color: #6b7280; }

@@ -66,6 +66,21 @@ function renderTimelineTable(blocks) {
 
 let timelineInstance = null;
 
+// parent sections (collapsible) and the child lanes nested under each.
+// groups MUST be a vis.DataSet for collapse/expand to work.
+function buildGroups() {
+    return new vis.DataSet([
+        { id: 'agent', content: 'Agent', nestedGroups: ['thinking', 'assistant_message'] },
+        { id: 'thinking', content: 'Thinking' },
+        { id: 'assistant_message', content: 'Assistant' },
+        { id: 'user', content: 'User', nestedGroups: ['user_message'] },
+        { id: 'user_message', content: 'Message' },
+        { id: 'tools', content: 'Tools', nestedGroups: ['tool_call', 'attachment'] },
+        { id: 'tool_call', content: 'Tool Call' },
+        { id: 'attachment', content: 'Attachment' },
+    ]);
+}
+
 function renderTimeline(container, blocks) {
     if (timelineInstance) {
         timelineInstance.destroy();
@@ -74,15 +89,23 @@ function renderTimeline(container, blocks) {
 
     const items = new vis.DataSet(blocks.map((b, i) => {
         const text = typeof b.content === 'string' ? b.content : JSON.stringify(b.content, null, 2);
+        // enforce a minimum duration so zero-length blocks (e.g. attachments) stay visible
+        let end = b.end_time;
+        if (!end || end === b.start_time) {
+            end = new Date(new Date(b.start_time).getTime() + 1000).toISOString();
+        }
         return {
             id: i,
+            group: b.type,
             content: escapeHtml(b.title || b.type),
             start: b.start_time,
-            end: b.end_time,
+            end: end,
             className: 'tl-' + b.type,
             title: '<b>' + escapeHtml(b.type) + '</b><br><pre>' + escapeHtml(text.slice(0, 1000)) + '</pre>',
         };
     }));
+
+    const groups = buildGroups();
 
     const options = {
         stack: true,
@@ -90,16 +113,17 @@ function renderTimeline(container, blocks) {
         zoomKey: 'ctrlKey',       // ctrl + wheel zooms
         margin: { item: 6 },
         tooltip: { followMouse: true },
-        minHeight: 200,           // grow to fit content, bounded so it stays in the container
-        maxHeight: 480,           // taller sessions get a vertical scrollbar instead of overflowing
+        minHeight: 300,           // grow to fit content, bounded so it stays in the container
+        maxHeight: 600,           // taller sessions get a vertical scrollbar instead of overflowing
+        orientation: { axis: 'top' },
     };
 
-    timelineInstance = new vis.Timeline(container, items, options);
-    timelineInstance.fit();       // zoom to show the whole session
+    timelineInstance = new vis.Timeline(container, items, groups, options);
+    requestAnimationFrame(() => timelineInstance.fit());  // fit after the DOM settles
 
     timelineInstance.on('select', props => {
         const id = props.items[0];
-        if (id === undefined) return;
+        if (id === undefined) return;   // collapse-arrow clicks fire with no item
         renderBlockDetail(blocks[id]);
     });
 }
