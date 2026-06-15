@@ -90,10 +90,31 @@ function renderTimeline(container, blocks) {
         zoomKey: 'ctrlKey',       // ctrl + wheel zooms
         margin: { item: 6 },
         tooltip: { followMouse: true },
+        minHeight: 200,           // grow to fit content, bounded so it stays in the container
+        maxHeight: 480,           // taller sessions get a vertical scrollbar instead of overflowing
     };
 
     timelineInstance = new vis.Timeline(container, items, options);
     timelineInstance.fit();       // zoom to show the whole session
+
+    timelineInstance.on('select', props => {
+        const id = props.items[0];
+        if (id === undefined) return;
+        renderBlockDetail(blocks[id]);
+    });
+}
+
+function renderBlockDetail(b) {
+    const panel = document.getElementById('block-detail');
+    if (!panel || !b) return;
+    const content = typeof b.content === 'string' ? b.content : JSON.stringify(b.content, null, 2);
+    panel.innerHTML =
+        '<div class="bd-head">' +
+            '<span class="bd-type tl-' + escapeHtml(b.type) + '">' + escapeHtml(b.type) + '</span>' +
+            '<b>' + escapeHtml(b.title || '') + '</b>' +
+            '<span class="bd-time">' + escapeHtml(b.start_time) + ' &rarr; ' + escapeHtml(b.end_time) + '</span>' +
+        '</div>' +
+        '<pre>' + escapeHtml(content) + '</pre>';
 }
 
 async function showDetail(id, el) {
@@ -110,6 +131,7 @@ async function showDetail(id, el) {
     document.getElementById('detail').innerHTML =
         '<h3>Timeline</h3>' +
         '<div id="timeline"></div>' +
+        '<div id="block-detail">Click a block to see its full content.</div>' +
         '<h3>Events</h3>' +
         renderTimelineTable(blocks) +
         '<h3>Details</h3>' +
