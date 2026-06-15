@@ -48,9 +48,9 @@ function escapeHtml(s) {
     return String(s ?? '').replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
 }
 
-function renderTimeline(timeline) {
-    const rows = timeline.map(b => {
-        const content = typeof b.content === 'string' ? b.content : JSON.stringify(b.content);
+function renderTimelineTable(blocks) {
+    const rows = blocks.map(b => {
+        const content = typeof b.content === 'string' ? b.content : JSON.stringify(b.content, null, 2);
         return '<tr>' +
             '<td>' + escapeHtml(b.start_time) + '</td>' +
             '<td>' + escapeHtml(b.end_time) + '</td>' +
@@ -64,6 +64,38 @@ function renderTimeline(timeline) {
         '<tbody>' + rows + '</tbody></table>';
 }
 
+let timelineInstance = null;
+
+function renderTimeline(container, blocks) {
+    if (timelineInstance) {
+        timelineInstance.destroy();
+        timelineInstance = null;
+    }
+
+    const items = new vis.DataSet(blocks.map((b, i) => {
+        const text = typeof b.content === 'string' ? b.content : JSON.stringify(b.content, null, 2);
+        return {
+            id: i,
+            content: escapeHtml(b.title || b.type),
+            start: b.start_time,
+            end: b.end_time,
+            className: 'tl-' + b.type,
+            title: '<b>' + escapeHtml(b.type) + '</b><br><pre>' + escapeHtml(text.slice(0, 1000)) + '</pre>',
+        };
+    }));
+
+    const options = {
+        stack: true,
+        horizontalScroll: true,   // mouse wheel pans horizontally
+        zoomKey: 'ctrlKey',       // ctrl + wheel zooms
+        margin: { item: 6 },
+        tooltip: { followMouse: true },
+    };
+
+    timelineInstance = new vis.Timeline(container, items, options);
+    timelineInstance.fit();       // zoom to show the whole session
+}
+
 async function showDetail(id, el) {
     document.querySelectorAll('.item').forEach(i => i.classList.remove('active'));
     el.classList.add('active');
@@ -73,12 +105,17 @@ async function showDetail(id, el) {
         fetch('/api/sessions/' + id + '/timeline'),
     ]);
     const data = await dataRes.json();
-    const timeline = await timelineRes.json();
+    const blocks = await timelineRes.json();
 
     document.getElementById('detail').innerHTML =
-        '<pre>' + JSON.stringify(data, null, 2) + '</pre>' +
         '<h3>Timeline</h3>' +
-        renderTimeline(timeline);
+        '<div id="timeline"></div>' +
+        '<h3>Events</h3>' +
+        renderTimelineTable(blocks) +
+        '<h3>Details</h3>' +
+        '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+
+    renderTimeline(document.getElementById('timeline'), blocks);
 }
 
 loadSidebar();

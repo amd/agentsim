@@ -7,8 +7,17 @@ body { margin: 0; font-family: sans-serif; display: flex; height: 100vh; }
 .item.active { background: #e8f0fe; }
 #detail { flex: 1; padding: 24px; overflow-y: auto; }
 pre { background: #f7f7f7; padding: 16px; border-radius: 6px; white-space: pre-wrap; word-break: break-word; }
+#timeline { height: 360px; border: 1px solid #ddd; }
+
 table.timeline { width: 100%; border-collapse: collapse; font-size: 13px; }
 table.timeline th, table.timeline td { border: 1px solid #ddd; padding: 6px 8px; text-align: left; vertical-align: top; }
 table.timeline th { background: #f0f0f0; }
 table.timeline td pre { margin: 0; padding: 8px; max-height: 200px; overflow: auto; font-size: 12px; }
 table.timeline td:nth-child(1), table.timeline td:nth-child(2) { white-space: nowrap; font-family: monospace; font-size: 12px; }
+
+/* color code timeline items by block type */
+.vis-item.tl-user_message { background: #e3f2fd; border-color: #64b5f6; }
+.vis-item.tl-assistant_message { background: #e8f5e9; border-color: #66bb6a; }
+.vis-item.tl-thinking { background: #f3e5f5; border-color: #ba68c8; }
+.vis-item.tl-tool_call { background: #fff3e0; border-color: #ffb74d; }
+.vis-item.tl-tool_call.vis-selected { background: #ffe0b2; }
