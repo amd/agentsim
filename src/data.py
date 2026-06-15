@@ -4,7 +4,7 @@ import pandas as pd
 import json
 
 
-def get_sessions_list():
+def get_sessions_list(return_as_json=True):
     user_dir = os.path.expanduser("~")
     claude_dir = os.path.join(user_dir, ".claude", "projects")
     sessions_pattern = os.path.join(claude_dir, "*", "*.jsonl")
@@ -48,8 +48,10 @@ def get_sessions_list():
                 mask = sessions_df["id"] == os.path.basename(session).split(".")[0]
                 sessions_df.loc[mask, "title"] = record.get("aiTitle")
 
-    return sessions_df.to_dict(orient="records")
-
+    if return_as_json:
+        return sessions_df.to_dict(orient="records")
+    else:
+        return sessions_df
 
 if __name__ == "__main__":
     sessions = get_sessions_list()
