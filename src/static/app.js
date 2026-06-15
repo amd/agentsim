@@ -115,12 +115,22 @@ function renderTimeline(container, blocks) {
 
     const groups = buildGroups(blocks);
 
+    // bound panning/zooming to the session's own time span
+    const times = blocks.flatMap(b => [
+        new Date(b.start_time).getTime(),
+        new Date(b.end_time || b.start_time).getTime(),
+    ]);
+    const minTime = new Date(Math.min(...times));
+    const maxTime = new Date(Math.max(...times));
+
     const options = {
         stack: true,
         horizontalScroll: true,   // mouse wheel pans horizontally
         zoomKey: 'ctrlKey',       // ctrl + wheel zooms
         margin: { item: 6 },
         orientation: { axis: 'top' },
+        min: minTime,             // can't scroll before the first block
+        max: maxTime,             // can't scroll past the last block
         // height set dynamically below to fill the browser viewport
     };
 
