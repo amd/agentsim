@@ -21,3 +21,4 @@ table.timeline td:nth-child(1), table.timeline td:nth-child(2) { white-space: no
 .vis-item.tl-thinking { background: #f3e5f5; border-color: #ba68c8; }
 .vis-item.tl-tool_call { background: #fff3e0; border-color: #ffb74d; }
 .vis-item.tl-tool_call.vis-selected { background: #ffe0b2; }
+.vis-item.tl-attachment { background: #eceff1; border-color: #90a4ae; }

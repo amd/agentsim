@@ -2,6 +2,7 @@ import glob
 import os
 import pandas as pd
 import json
+from datetime import datetime, timedelta
 
 def parse_session_file(session_path: str):
     def parse_concatenated_json(content):
@@ -76,6 +77,9 @@ def get_session_path(session_id: str):
         raise FileNotFoundError(f"session {session_id} not found")
     return matches[0]
 
+def _shift_timestamp(timestamp: str, seconds: float):
+    return (datetime.fromisoformat(timestamp.replace("Z", "+00:00")) + timedelta(seconds=seconds)).isoformat().replace("+00:00", "Z")
+
 def get_session_timeline(session_id: str):
     records = parse_session_file(get_session_path(session_id))
 
@@ -93,62 +97,80 @@ def get_session_timeline(session_id: str):
                         "is_error": block.get("is_error", False),
                     }
 
-    # flatten user/assistant messages and tool calls into ordered timeline blocks
+    # map every record to its parent so we can walk past untracked nodes (e.g. system records)
+    parent_of = {r.get("uuid"): r.get("parentUuid") for r in records if r.get("uuid")}
+
+    # a block ends at its own timestamp; it starts where the nearest preceding block ended.
+    # we chain via parentUuid (skipping untracked records) instead of relying on file order.
+    end_by_uuid = {}
+
+    def start_for(parent_uuid, end_time):
+        seen = set()
+        current = parent_uuid
+        while current and current not in seen:
+            if current in end_by_uuid:
+                return end_by_uuid[current]
+            seen.add(current)
+            current = parent_of.get(current)
+        return _shift_timestamp(end_time, -10)  # no prior block: show as 10 seconds
+
     timeline = []
     for record in records:
         rtype = record.get("type")
         timestamp = record.get("timestamp")
+        uuid = record.get("uuid")
+        parent = record.get("parentUuid")
         message = record.get("message") or {}
         content = message.get("content")
 
-        if rtype == "user":
-            if isinstance(content, str):
-                timeline.append({
-                    "start_time": timestamp,
-                    "end_time": None,
-                    "type": "user_message",
-                    "title": "User",
-                    "content": content,
-                })
-            # tool_result blocks are attached to their tool call below, so skip here
+        if rtype == "user" and isinstance(content, str):
+            timeline.append({
+                "start_time": start_for(parent, timestamp),
+                "end_time": timestamp,
+                "type": "user_message",
+                "title": "User",
+                "content": content,
+            })
+            end_by_uuid[uuid] = timestamp
+
+        elif rtype == "user" and isinstance(content, list):
+            # tool_result: folded into its tool_call, but keep the chain alive for the next block
+            end_by_uuid[uuid] = timestamp
 
         elif rtype == "assistant" and isinstance(content, list):
+            last_end = None
             for block in content:
                 btype = block.get("type")
                 if btype == "thinking":
-                    timeline.append({
-                        "start_time": timestamp,
-                        "end_time": None,
-                        "type": "thinking",
-                        "title": "Thinking",
-                        "content": block.get("thinking"),
-                    })
+                    blk = {"start_time": start_for(parent, timestamp), "end_time": timestamp,
+                           "type": "thinking", "title": "Thinking", "content": block.get("thinking")}
                 elif btype == "text":
-                    timeline.append({
-                        "start_time": timestamp,
-                        "end_time": None,
-                        "type": "assistant_message",
-                        "title": "Assistant",
-                        "content": block.get("text"),
-                    })
+                    blk = {"start_time": start_for(parent, timestamp), "end_time": timestamp,
+                           "type": "assistant_message", "title": "Assistant", "content": block.get("text")}
                 elif btype == "tool_use":
                     result = tool_results.get(block.get("id"), {})
-                    timeline.append({
-                        "start_time": timestamp,
-                        "end_time": result.get("timestamp", timestamp),
-                        "type": "tool_call",
-                        "title": block.get("name"),
-                        "content": {
-                            "input": block.get("input"),
-                            "result": result.get("content"),
-                            "is_error": result.get("is_error", False),
-                        },
-                    })
+                    end = result.get("timestamp", timestamp)
+                    blk = {"start_time": start_for(parent, timestamp), "end_time": end,
+                           "type": "tool_call", "title": block.get("name"),
+                           "content": {"input": block.get("input"), "result": result.get("content"),
+                                       "is_error": result.get("is_error", False)}}
+                else:
+                    continue
+                timeline.append(blk)
+                last_end = blk["end_time"]
+            if last_end is not None:
+                end_by_uuid[uuid] = last_end
 
-    # fill missing end times (messages/thinking) with the next block's start time
-    for i, block in enumerate(timeline):
-        if block["end_time"] is None:
-            block["end_time"] = timeline[i + 1]["start_time"] if i + 1 < len(timeline) else block["start_time"]
+        elif rtype == "attachment" and timestamp:
+            attachment = record.get("attachment") or {}
+            timeline.append({
+                "start_time": timestamp,
+                "end_time": timestamp,
+                "type": "attachment",
+                "title": attachment.get("type", "attachment"),
+                "content": attachment.get("content"),
+            })
+            end_by_uuid[uuid] = timestamp
 
     return timeline
 
