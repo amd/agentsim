@@ -1,0 +1,26 @@
+{
+  "name": "tauri-template-app",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Template app: Tauri + TypeScript frontend, Python/FastAPI backend, and a CLI client. Sample code prints hello world.",
+  "workspaces": [
+    "src/app",
+    "src/cli"
+  ],
+  "scripts": {
+    "server:install": "cd src/server && python -m pip install -r requirements.txt",
+    "dev:server": "cd src/server && python -m app.main",
+    "dev:app": "npm run dev --workspace src/app",
+    "dev": "concurrently -n server,app -c blue,green \"npm run dev:server\" \"npm run dev:app\"",
+    "app:icons": "npm run app:icons --workspace src/app",
+    "tauri:dev": "npm run tauri:dev --workspace src/app",
+    "cli": "npm run start --workspace src/cli --",
+    "build": "npm run build --workspace src/app",
+    "typecheck": "tsc -b src/cli && npm run typecheck --workspace src/app"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}

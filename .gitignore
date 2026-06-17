@@ -1,3 +1,27 @@
-.idea
-.claude
-.venv
+# dependencies
+node_modules/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.tsbuildinfo
+
+# build output
+dist/
+**/dist/
+src/app/src-tauri/target/
+
+# Rust
+target/
+
+# runtime data (keep the dir, ignore contents)
+data/*
+!data/.gitkeep
+
+# misc
+*.log
+.DS_Store
+
+src/app
+src/cli
