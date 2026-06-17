@@ -13,7 +13,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.backends.AgenticFramework import AgenticFramework
-from app.models import SessionInfo, SessionTrace
+from app.models import SessionMetadata, SessionTrace
 
 
 def create_app(frameworks: dict[str, AgenticFramework]) -> FastAPI:
@@ -42,7 +42,7 @@ def create_app(frameworks: dict[str, AgenticFramework]) -> FastAPI:
         return [{"alias": alias, "name": fw.name} for alias, fw in frameworks.items()]
 
     @app.get("/frameworks/{framework}/sessions")
-    def sessions(framework: str) -> list[SessionInfo]:
+    def sessions(framework: str) -> list[SessionMetadata]:
         return _framework(framework).get_sessions_list()
 
     @app.get("/frameworks/{framework}/sessions/{session_id}")

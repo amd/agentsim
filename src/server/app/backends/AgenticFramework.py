@@ -9,7 +9,7 @@ else in the server changes.
 
 from abc import ABC, abstractmethod
 
-from app.models import SessionInfo, SessionTrace
+from app.models import SessionMetadata, SessionTrace
 
 
 class AgenticFramework(ABC):
@@ -22,7 +22,7 @@ class AgenticFramework(ABC):
         """Resolve paths and prepare to serve requests. Called once at startup."""
 
     @abstractmethod
-    def get_sessions_list(self) -> list[SessionInfo]:
+    def get_sessions_list(self) -> list[SessionMetadata]:
         """Return a descriptor for every session this backend can read."""
 
     @abstractmethod
