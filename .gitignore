@@ -25,3 +25,5 @@ data/*
 
 src/app
 src/cli
+
+.idea
