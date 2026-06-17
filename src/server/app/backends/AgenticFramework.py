@@ -9,7 +9,7 @@ else in the server changes.
 
 from abc import ABC, abstractmethod
 
-from app.models import SessionInfo, SessionTraceData
+from app.models import SessionInfo, SessionTrace
 
 
 class AgenticFramework(ABC):

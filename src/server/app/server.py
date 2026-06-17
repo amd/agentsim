@@ -13,7 +13,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.backends.AgenticFramework import AgenticFramework
-from app.models import SessionInfo, SessionTraceData
+from app.models import SessionInfo, SessionTrace
 
 
 def create_app(frameworks: dict[str, AgenticFramework]) -> FastAPI:
@@ -46,10 +46,10 @@ def create_app(frameworks: dict[str, AgenticFramework]) -> FastAPI:
         return _framework(framework).get_sessions_list()
 
     @app.get("/frameworks/{framework}/sessions/{session_id}")
-    def session(framework: str, session_id: str) -> SessionTraceData:
+    def session(framework: str, session_id: str) -> SessionTrace:
         backend = _framework(framework)
         try:
-            return backend.get_session_trace_data(session_id)
+            return backend.get_session_trace(session_id)
         except FileNotFoundError:
             raise HTTPException(status_code=404, detail=f"unknown session: {session_id}")
 
