@@ -1,74 +1,32 @@
 """Agentic-framework backend for Claude Code.
 
-Claude Code records each conversation as a JSON-lines transcript at
-``~/.claude/projects/<encoded-cwd>/<session-uuid>.jsonl``. Every line is one
-event (a user/assistant message or a tool interaction). This backend walks
-those files and flattens each transcript into the shared ``SessionTraceData``
-the timeline renders.
-
-The data root is overridable (``--data-dir``) so the server can read an
-exported/sample tree instead of the live ``~/.claude`` directory.
+Currently returns mock sessions and traces so the API and frontend can be
+developed against a stable shape. The real implementation will read Claude
+Code's JSON-lines transcripts from ``~/.claude/projects`` and flatten each
+into the same span trace these mocks produce.
 """
 
-import json
 from pathlib import Path
 
 from app.backends.AgenticFramework import AgenticFramework
-from app.models import Message, SessionTraceData
+from app.models import SessionInfo, SessionTraceData, Span, SpanType
 
-
-def _stringify(value: object) -> str:
-    """Render an arbitrary JSON value as readable single-string content."""
-    if isinstance(value, str):
-        return value
-    if isinstance(value, list):
-        parts = []
-        for item in value:
-            if isinstance(item, dict) and item.get("type") == "text":
-                parts.append(str(item.get("text", "")))
-            else:
-                parts.append(_stringify(item))
-        return "\n".join(p for p in parts if p)
-    if isinstance(value, dict):
-        return json.dumps(value, ensure_ascii=False, indent=2)
-    return "" if value is None else str(value)
-
-
-def _blocks_to_messages(role: str, content: object, timestamp: str) -> list[Message]:
-    """Turn one transcript line's ``message.content`` into timeline entries."""
-    if isinstance(content, str):
-        return [Message(role=role, type="message", content=content, timestamp=timestamp)]
-
-    if not isinstance(content, list):
-        return []
-
-    messages: list[Message] = []
-    for block in content:
-        if not isinstance(block, dict):
-            messages.append(Message(role=role, type="message", content=_stringify(block), timestamp=timestamp))
-            continue
-
-        btype = block.get("type")
-        if btype == "text":
-            messages.append(Message(role=role, type="message", content=str(block.get("text", "")), timestamp=timestamp))
-        elif btype == "thinking":
-            messages.append(Message(role=role, type="message", content=str(block.get("thinking", "")), timestamp=timestamp))
-        elif btype == "tool_use":
-            messages.append(Message(
-                role=role,
-                type="tool_use",
-                content=_stringify(block.get("input")),
-                timestamp=timestamp,
-                name=str(block.get("name", "")),
-            ))
-        elif btype == "tool_result":
-            messages.append(Message(
-                role="tool",
-                type="tool_result",
-                content=_stringify(block.get("content")),
-                timestamp=timestamp,
-            ))
-    return messages
+_MOCK_TRACES: dict[str, list[Span]] = {
+    "sess-aaaa-1111": [
+        Span(type=SpanType.user_message, content="List the files in this repo", timestamp="2026-06-17T10:00:00Z"),
+        Span(type=SpanType.agent_thinking, content="The user wants a directory listing. I'll run ls.", timestamp="2026-06-17T10:00:01Z"),
+        Span(type=SpanType.agent_message, content="I'll list the files.", timestamp="2026-06-17T10:00:02Z"),
+        Span(type=SpanType.agent_tooluse, content='{"command": "ls -la"}', timestamp="2026-06-17T10:00:03Z", name="Bash"),
+        Span(type=SpanType.agent_message, content="There are 3 files: app/, main.py, requirements.txt.", timestamp="2026-06-17T10:00:05Z"),
+    ],
+    "sess-bbbb-2222": [
+        Span(type=SpanType.user_message, content="Fix the failing test in test_models.py", timestamp="2026-06-17T11:30:00Z"),
+        Span(type=SpanType.agent_thinking, content="I should read the test first to see what it expects.", timestamp="2026-06-17T11:30:01Z"),
+        Span(type=SpanType.agent_tooluse, content='{"file_path": "test_models.py"}', timestamp="2026-06-17T11:30:02Z", name="Read"),
+        Span(type=SpanType.agent_message, content="The assertion expected `spans`, not `messages`. Patching it.", timestamp="2026-06-17T11:30:06Z"),
+        Span(type=SpanType.agent_tooluse, content='{"file_path": "test_models.py", "old": "messages", "new": "spans"}', timestamp="2026-06-17T11:30:07Z", name="Edit"),
+    ],
+}
 
 
 class ClaudeCode(AgenticFramework):
@@ -83,45 +41,22 @@ class ClaudeCode(AgenticFramework):
         base = self._data_dir if self._data_dir is not None else Path.home() / ".claude" / "projects"
         self.data_basepath = str(base)
 
-    def _base(self) -> Path:
-        return Path(self.data_basepath)
-
-    def get_sessions_list(self) -> list[str]:
-        base = self._base()
-        if not base.exists():
-            return []
-        return sorted({path.stem for path in base.rglob("*.jsonl")})
+    def get_sessions_list(self) -> list[SessionInfo]:
+        return [
+            SessionInfo(
+                id="sess-aaaa-1111",
+                name="Explore repo layout",
+                data_path=str(Path(self.data_basepath) / "sess-aaaa-1111.jsonl"),
+            ),
+            SessionInfo(
+                id="sess-bbbb-2222",
+                name="Fix failing model test",
+                data_path=str(Path(self.data_basepath) / "sess-bbbb-2222.jsonl"),
+            ),
+        ]
 
     def get_session_trace_data(self, session_id: str) -> SessionTraceData:
-        path = self._find_session_file(session_id)
-        if path is None:
+        spans = _MOCK_TRACES.get(session_id)
+        if spans is None:
             raise FileNotFoundError(f"unknown session: {session_id}")
-
-        messages: list[Message] = []
-        with path.open("r", encoding="utf-8") as handle:
-            for line in handle:
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    event = json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-                if event.get("type") not in ("user", "assistant"):
-                    continue
-                payload = event.get("message") or {}
-                role = payload.get("role", event.get("type", ""))
-                messages.extend(
-                    _blocks_to_messages(role, payload.get("content"), event.get("timestamp", ""))
-                )
-
-        return SessionTraceData(session_id=session_id, messages=messages)
-
-    def _find_session_file(self, session_id: str) -> Path | None:
-        base = self._base()
-        if not base.exists():
-            return None
-        candidate = base / f"{session_id}.jsonl"
-        if candidate.exists():
-            return candidate
-        return next(iter(base.rglob(f"{session_id}.jsonl")), None)
+        return SessionTraceData(session_id=session_id, spans=list(spans))

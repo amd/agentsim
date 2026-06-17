@@ -5,31 +5,48 @@ HTTP/JSON contract: the frontend (api.ts) and the CLI expect these exact keys,
 so keeping the model identical to the wire format means clients need no changes.
 """
 
+from enum import Enum
+
 from pydantic import BaseModel
 
 
-class Message(BaseModel):
-    """A single entry in a session trace, exactly as it appears on the wire.
+class SpanType(str, Enum):
+    """The kinds of events a trace is made of."""
 
-    One transcript event: a chat message or a tool interaction. The timeline
-    renders one of these per row, grouping/collapsing by ``type``.
+    user_message = "user_message"
+    agent_message = "agent_message"
+    agent_thinking = "agent_thinking"
+    agent_tooluse = "agent_tooluse"
+
+
+class Span(BaseModel):
+    """The fundamental component of a trace: a single timeline event.
+
+    Every row the timeline draws is one Span. ``content`` is the human-readable
+    text; ``name`` carries the tool name when ``type`` is ``agent_tooluse``.
     """
 
-    role: str           # "user" | "assistant" | "system"
-    type: str           # "message" | "tool_use" | "tool_result"
-    content: str        # human-readable text for this entry
-    timestamp: str      # ISO-8601 timestamp; "" when the source omits one
-    name: str = ""      # tool name for tool_use / tool_result, else ""
+    type: SpanType
+    content: str
+    timestamp_start: str = ""   # ISO-8601; "" when the source omits one
+    timestamp_end: str = ""   # ISO-8601; "" when the source omits one
+    timetick_start: int # milliseconds from the session init time to span start
+    timetick_end: int  # milliseconds from the session init time to span end
+    duration_ms: int = 0 # how amny ms it took for the span
+    name: str = ""        # tool name for agent_tooluse, else ""
 
 
-class SessionTraceData(BaseModel):
-    """The full trace for one session: its id plus every message in order."""
+class SessionInfo(BaseModel):
+    """Lightweight descriptor of one session, returned by the session list."""
+
+    id: str
+    name: str
+    data_path: str
+
+
+class SessionTrace(BaseModel):
+    """The full trace for one session: its id plus every span in order."""
 
     session_id: str
-    messages: list[Message]
+    spans: list[Span]
 
-
-class SessionTracesData(BaseModel):
-    """A collection of session traces (used when returning more than one)."""
-
-    sessions: list[SessionTraceData]
