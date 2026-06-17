@@ -23,7 +23,6 @@ data/*
 *.log
 .DS_Store
 
-src/app
-src/cli
-
 .idea
+src_future
+/src/app/src-tauri/icons/
