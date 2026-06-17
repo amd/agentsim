@@ -1,0 +1,217 @@
+/* ============================================================================
+   Lemonade Design Tokens
+   Extracted faithfully from lemonade-sdk/lemonade
+   (src/app/styles/variables-dark.css + variables-light.css)
+
+   Dark is the default (:root). Light theme applies under [data-theme="light"].
+   These are the canonical color/spacing primitives for the design language.
+   ============================================================================ */
+
+:root {
+    /* --- Brand --- */
+    --lemon-yellow: #f0c040;          /* primary accent (light btn) */
+    --lemon-yellow-bright: #ffc832;   /* marketplace / badges */
+    --lemon-amber: #facc15;           /* loading / focus rings */
+    --lemon-green: #b3d745;           /* logo leaf */
+
+    /* --- Surfaces (dark) --- */
+    --title-surface: #000000;
+    --header-bg-color: #000000;
+    --header-text: var(--text-quaternary);
+    --bg-primary: #0a0a0a;
+    --bg-secondary: #1a1a1a;
+    --bg-tertiary: #111111;
+    --bg-quaternary: #2a2a2a;
+    --bg-hover: #f0f0f0;
+
+    /* --- Status / semantic --- */
+    --success-color: #4CAF50;
+    --success-border: #4CAF50;
+    --warning-color: #ffb74d;
+    --info-color: #2196F3;
+    --action-color: #FF9800;
+    --error-background-color: rgba(244, 67, 54, 0.1);
+    --error-border: rgba(244, 67, 54, 0.3);
+    --error-color: #f44336;
+    --error-hover: #dc2626;
+
+    --status-connecting: rgba(255, 165, 0, 0.1);
+    --on-status-connecting: #ffa500;
+    --status-connected: rgba(0, 255, 0, 0.1);
+    --on-status-connected: #00ff00;
+    --status-error: rgba(255, 68, 68, 0.1);
+    --on-status-error: #ff4444;
+    --status-disconnected: rgba(136, 136, 136, 0.1);
+    --on-status-disconnected: var(--text-secondary);
+
+    /* --- Alpha overlays (white-on-dark) --- */
+    --bg-alpha-01: rgba(255, 255, 255, 0.01);
+    --bg-alpha-02: rgba(255, 255, 255, 0.02);
+    --bg-alpha-03: rgba(255, 255, 255, 0.03);
+    --bg-alpha-04: rgba(255, 255, 255, 0.04);
+    --bg-alpha-05: rgba(255, 255, 255, 0.05);
+    --bg-alpha-06: rgba(255, 255, 255, 0.06);
+    --bg-alpha-07: rgba(255, 255, 255, 0.07);
+    --bg-alpha-08: rgba(255, 255, 255, 0.08);
+    --bg-alpha-1: rgba(255, 255, 255, 0.1);
+    --bg-alpha-2: rgba(255, 255, 255, 0.2);
+    --bg-alpha-3: rgba(255, 255, 255, 0.3);
+    --bg-alpha-4: rgba(255, 255, 255, 0.4);
+    --bg-alpha-5: rgba(255, 255, 255, 0.5);
+
+    --bg-slider: #333333;
+
+    /* --- Capability label colors --- */
+    --label-reasoning: #6495ED;
+    --label-coding: #48BB78;
+    --label-vision: #9F7AEA;
+    --label-hot: #F56565;
+    --label-embeddings: #ED8936;
+    --label-reranking: #D69E2E;
+    --label-tool-calling: #38B2AC;
+    --label-custom: #FAD02C;
+
+    /* --- Toasts --- */
+    --toast-success-border: rgba(34, 197, 94, 0.4);
+    --toast-success-surface: linear-gradient(135deg, #1a1a1a 0%, #151f17 100%);
+    --toast-success-text: #22c55e;
+    --toast-info-border: rgba(59, 130, 246, 0.4);
+    --toast-info-surface: linear-gradient(135deg, #1a1a1a 0%, #151a1f 100%);
+    --toast-info-text: #3b82f6;
+    --toast-warning-border: rgba(234, 179, 8, 0.4);
+    --toast-warning-surface: linear-gradient(135deg, #1a1a1a 0%, #1f1d15 100%);
+    --toast-warning-text: #eab308;
+    --toast-error-border: rgba(239, 68, 68, 0.4);
+    --toast-error-surface: linear-gradient(135deg, #1a1a1a 0%, #1f1517 100%);
+    --toast-error-text: #ef4444;
+
+    /* --- Borders --- */
+    --border-alpha-05: rgba(255, 255, 255, 0.05);
+    --border-alpha-06: rgba(255, 255, 255, 0.06);
+    --border-alpha-07: rgba(255, 255, 255, 0.07);
+    --border-alpha-08: rgba(255, 255, 255, 0.08);
+    --border-alpha-09: rgba(255, 255, 255, 0.09);
+    --border-alpha-1: rgba(255, 255, 255, 0.1);
+    --border-alpha-15: rgba(255, 255, 255, 0.15);
+    --border-alpha-2: rgba(255, 255, 255, 0.2);
+
+    --border-primary: #333333;
+    --border-secondary: #2a2a2a;
+    --border-tertiary: #1a1a1a;
+    --border-4: #444444;
+    --border-5: #555555;
+    --border-6: #666666;
+    --border-8: #888888;
+    --color-5: #555555;
+    --color-7: #777777;
+    --color-9: #999999;
+
+    /* --- Text --- */
+    --text-primary: #ffffff;
+    --text-secondary: #888888;
+    --text-tertiary: #cccccc;
+    --text-quaternary: #666666;
+    --text-code: #e0e0e0;
+    --text-aaa: #aaaaaa;
+    --text-link: #75abd7;
+    --text-link-hover: #96c5e9;
+
+    --model-available: var(--text-primary);
+    --model-unavailable: #666666;
+    --model-manager-bg: #0a0a0a;
+
+    /* --- Buttons --- */
+    --btn-primary: var(--bg-alpha-08);
+    --btn-primary--hover: var(--bg-alpha-2);
+    --btn-color: #000000;
+    --btn-bg-primary: #ffffff;
+    --btn-bg-secondary: #2a2a2a;
+    --btn-bg-hover: #3a3a3a;
+    --btn-border: none;
+
+    --chat-send-btn: var(--btn-bg-primary);
+    --icon-hover: #f2f2f2;
+    --icon-alt: #b9b9b9;
+
+    /* --- Radii & motion (derived from observed usage) --- */
+    --radius-sm: 4px;
+    --radius-md: 6px;
+    --radius-lg: 8px;
+    --radius-xl: 12px;
+    --radius-pill: 999px;
+    --ease: cubic-bezier(0.4, 0, 0.2, 1);
+
+    /* --- Type scale --- */
+    --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+        'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+    --font-mono: 'Courier New', ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/* ----------------------------------------------------------------------------
+   Light theme — warm cream palette (the signature "lemonade" daylight look)
+   ---------------------------------------------------------------------------- */
+[data-theme="light"] {
+    --title-surface: #efebe1;
+    --header-bg-color: #fdfbf6;
+    --bg-primary: #fdfbf6;
+    --bg-secondary: #f5f2ec;
+    --bg-tertiary: #ffffff;
+    --bg-quaternary: #fef3c7;
+    --bg-hover: rgba(240, 192, 64, 0.4);
+
+    --status-connecting: rgba(255, 165, 0, 0.15);
+    --on-status-connecting: #b45309;
+    --status-connected: rgba(0, 200, 0, 0.12);
+    --on-status-connected: #15803d;
+    --status-error: rgba(255, 68, 68, 0.15);
+    --on-status-error: #b91c1c;
+
+    --bg-alpha-01: rgba(255, 255, 255, 0.01);
+    --bg-alpha-02: rgba(0, 0, 0, 0.02);
+    --bg-alpha-03: rgba(0, 0, 0, 0.03);
+    --bg-alpha-04: rgba(0, 0, 0, 0.04);
+    --bg-alpha-05: rgba(0, 0, 0, 0.05);
+    --bg-alpha-06: rgba(0, 0, 0, 0.06);
+    --bg-alpha-07: rgba(255, 255, 255, 0.07);
+    --bg-alpha-08: rgba(0, 0, 0, 0.08);
+    --bg-alpha-1: rgba(0, 0, 0, 0.1);
+    --bg-alpha-2: rgba(0, 0, 0, 0.2);
+
+    --toast-success-surface: linear-gradient(135deg, #fdfbf6 0%, #f0fdf4 100%);
+    --toast-success-text: #15803d;
+    --toast-info-surface: linear-gradient(135deg, #fdfbf6 0%, #eff6ff 100%);
+    --toast-info-text: #1d4ed8;
+    --toast-warning-surface: linear-gradient(135deg, #fdfbf6 0%, #fefce8 100%);
+    --toast-warning-text: #a16207;
+    --toast-error-surface: linear-gradient(135deg, #fdfbf6 0%, #fef2f2 100%);
+    --toast-error-text: #b91c1c;
+
+    --border-primary: #e2ddd1;
+    --border-secondary: #e2ddd1;
+    --border-tertiary: #e2ddd1;
+    --border-4: #444444;
+    --border-5: #555555;
+    --border-6: #666666;
+    --color-9: #0a0a0a;
+
+    --text-primary: #000000;
+    --text-secondary: #0a0a0a;
+    --text-tertiary: #0a0a0a;
+    --text-quaternary: #91897d;
+    --text-aaa: #0a0a0a;
+    --text-link: #1976d2;
+    --text-link-hover: #176abd;
+
+    --model-manager-bg: #f5f2ec;
+
+    --btn-primary: rgba(240, 192, 64, 0.4);
+    --btn-primary--hover: #f0c040;
+    --btn-color: var(--text-secondary);
+    --btn-bg-primary: var(--bg-alpha-05);
+    --btn-bg-secondary: var(--bg-secondary);
+    --btn-bg-hover: var(--bg-tertiary);
+
+    --chat-send-btn: var(--bg-alpha-2);
+    --icon-hover: #000000;
+    --icon-alt: #2a2a2a;
+}

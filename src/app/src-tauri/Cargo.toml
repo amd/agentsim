@@ -1,0 +1,22 @@
+[package]
+name = "app"
+version = "0.1.0"
+description = "Tauri template desktop app (Tauri host)"
+edition = "2021"
+rust-version = "1.77"
+
+# The library that holds the actual app logic. main.rs is a thin wrapper that
+# calls into it. This split mirrors the standard Tauri v2 layout.
+[lib]
+name = "app_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+
+[features]
+# Used by Tauri's CLI when producing a release build.
+custom-protocol = ["tauri/custom-protocol"]

@@ -14,9 +14,9 @@
     "dev": "concurrently -n server,app -c blue,green \"npm run dev:server\" \"npm run dev:app\"",
     "app:icons": "npm run app:icons --workspace src/app",
     "tauri:dev": "npm run tauri:dev --workspace src/app",
-    "cli": "npm run start --workspace src/cli --",
+    "cli": "npm run start --workspace src_future/cli --",
     "build": "npm run build --workspace src/app",
-    "typecheck": "tsc -b src/cli && npm run typecheck --workspace src/app"
+    "typecheck": "tsc -b src_future/cli && npm run typecheck --workspace src/app"
   },
   "devDependencies": {
     "concurrently": "^9.1.0",

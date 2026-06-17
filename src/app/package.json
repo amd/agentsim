@@ -1,0 +1,25 @@
+{
+  "name": "@template/app",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The Tauri desktop app: a TypeScript frontend (renderer) plus a Rust host in src-tauri.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build",
+    "app:icons": "node src-tauri/make-icon.mjs && tauri icon src-tauri/app-icon.png"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.1.1"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.1.0",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.3"
+  }
+}
