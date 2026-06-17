@@ -1,80 +1,169 @@
 """Agentic-framework backend for Claude Code.
 
-Currently returns mock sessions and traces so the API and frontend can be
-developed against a stable shape. The real implementation will read Claude
-Code's JSON-lines transcripts from ``~/.claude/projects`` and flatten each
-into the same span trace these mocks produce.
+Reads Claude Code's transcripts under ``~/.claude/projects/<project>/<id>.jsonl``
+and flattens each into a span trace.
 
-Span timing is expressed two ways: wall-clock ISO timestamps
-(``timestamp_start`` / ``timestamp_end``) and integer ``offset_*`` values in
-milliseconds from the session's init time, which is what the timeline lays out
-against. For ``agent_tool`` spans the tool name is carried in ``title``.
+Timing is reconstructed the way the timeline needs it: a block *ends* at its own
+record timestamp and *starts* where the nearest preceding block ended. Preceding
+blocks are found by walking the ``parentUuid`` chain (skipping untracked records
+such as system/meta lines) rather than trusting file order, so parallel tool
+calls -- which share a dispatch timestamp -- overlap instead of chaining. Each
+span carries both wall-clock timestamps and integer ``offset_*`` values in
+milliseconds relative to the session's first block. For ``agent_tool`` spans the
+tool name is carried in ``title``.
 """
 
+import glob
+import json
+import os
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from app.backends.AgenticFramework import AgenticFramework
 from app.models import SessionMetadata, SessionTrace, Span, SpanType
 
-_MOCK_TRACES: dict[str, list[Span]] = {
-    "sess-aaaa-1111": [
-        Span(span_id="sess-aaaa-1111-0", type=SpanType.user_message,
-             content="List the files in this repo",
-             timestamp_start="2026-06-17T10:00:00.000Z", timestamp_end="2026-06-17T10:00:00.000Z",
-             offset_start_ms=0, offset_end=0, duration_ms=0),
-        Span(span_id="sess-aaaa-1111-1", type=SpanType.agent_thinking,
-             content="The user wants a directory listing. I'll run ls.",
-             timestamp_start="2026-06-17T10:00:01.000Z", timestamp_end="2026-06-17T10:00:01.800Z",
-             offset_start_ms=1000, offset_end=1800, duration_ms=800),
-        Span(span_id="sess-aaaa-1111-2", type=SpanType.agent_message,
-             content="I'll list the files.",
-             timestamp_start="2026-06-17T10:00:01.800Z", timestamp_end="2026-06-17T10:00:02.200Z",
-             offset_start_ms=1800, offset_end=2200, duration_ms=400),
-        Span(span_id="sess-aaaa-1111-3", type=SpanType.agent_tool, title="Bash",
-             content='{"command": "ls -la"}',
-             timestamp_start="2026-06-17T10:00:02.200Z", timestamp_end="2026-06-17T10:00:04.500Z",
-             offset_start_ms=2200, offset_end=4500, duration_ms=2300),
-        Span(span_id="sess-aaaa-1111-4", type=SpanType.agent_message,
-             content="There are 3 files: app/, main.py, requirements.txt.",
-             timestamp_start="2026-06-17T10:00:04.500Z", timestamp_end="2026-06-17T10:00:05.200Z",
-             offset_start_ms=4500, offset_end=5200, duration_ms=700),
-    ],
-    "sess-bbbb-2222": [
-        Span(span_id="sess-bbbb-2222-0", type=SpanType.user_message,
-             content="Fix the failing test in test_models.py",
-             timestamp_start="2026-06-17T11:30:00.000Z", timestamp_end="2026-06-17T11:30:00.000Z",
-             offset_start_ms=0, offset_end=0, duration_ms=0),
-        Span(span_id="sess-bbbb-2222-1", type=SpanType.agent_thinking,
-             content="I should read the test first to see what it expects.",
-             timestamp_start="2026-06-17T11:30:01.000Z", timestamp_end="2026-06-17T11:30:01.500Z",
-             offset_start_ms=1000, offset_end=1500, duration_ms=500),
-        Span(span_id="sess-bbbb-2222-2", type=SpanType.agent_tool, title="Read",
-             content='{"file_path": "test_models.py"}',
-             timestamp_start="2026-06-17T11:30:01.500Z", timestamp_end="2026-06-17T11:30:06.000Z",
-             offset_start_ms=1500, offset_end=6000, duration_ms=4500),
-        Span(span_id="sess-bbbb-2222-3", type=SpanType.agent_message,
-             content="The assertion expected `spans`, not `messages`. Patching it.",
-             timestamp_start="2026-06-17T11:30:06.000Z", timestamp_end="2026-06-17T11:30:06.800Z",
-             offset_start_ms=6000, offset_end=6800, duration_ms=800),
-        Span(span_id="sess-bbbb-2222-4", type=SpanType.agent_tool, title="Edit",
-             content='{"file_path": "test_models.py", "old": "messages", "new": "spans"}',
-             timestamp_start="2026-06-17T11:30:06.800Z", timestamp_end="2026-06-17T11:30:09.000Z",
-             offset_start_ms=6800, offset_end=9000, duration_ms=2200),
-    ],
+# Map the intermediate timeline block types to the wire SpanType. Any block type
+# not listed here (e.g. "attachment") falls back to SpanType.other.
+_BLOCK_TYPE_TO_SPAN: dict[str, SpanType] = {
+    "user_message": SpanType.user_message,
+    "assistant_message": SpanType.agent_message,
+    "thinking": SpanType.agent_thinking,
+    "tool_call": SpanType.agent_tool,
 }
 
-_MOCK_SESSIONS: dict[str, dict[str, str]] = {
-    "sess-aaaa-1111": {
-        "title": "Explore repo layout",
-        "timestamp_created": "2026-06-17T10:00:00.000Z",
-        "timestamp_modified": "2026-06-17T10:00:05.200Z",
-    },
-    "sess-bbbb-2222": {
-        "title": "Fix failing model test",
-        "timestamp_created": "2026-06-17T11:30:00.000Z",
-        "timestamp_modified": "2026-06-17T11:30:09.000Z",
-    },
-}
+
+def _parse_session_file(session_path: str) -> list[dict]:
+    """Parse a transcript into a list of records.
+
+    Tolerates both JSON-lines and whitespace-separated concatenated JSON by
+    decoding objects one at a time off the raw text.
+    """
+    decoder = json.JSONDecoder()
+    with open(session_path, "r", encoding="utf-8") as handle:
+        content = handle.read()
+
+    objects: list[dict] = []
+    idx, length = 0, len(content)
+    while idx < length:
+        while idx < length and content[idx].isspace():
+            idx += 1
+        if idx >= length:
+            break
+        obj, end = decoder.raw_decode(content, idx)
+        objects.append(obj)
+        idx = end
+    return objects
+
+
+def _parse_ts(timestamp: str) -> datetime:
+    return datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+
+
+def _shift_timestamp(timestamp: str, seconds: float) -> str:
+    return (_parse_ts(timestamp) + timedelta(seconds=seconds)).isoformat().replace("+00:00", "Z")
+
+
+def _offset_ms(timestamp: str, origin: datetime) -> int:
+    return int((_parse_ts(timestamp) - origin).total_seconds() * 1000)
+
+
+def _content_to_str(content: object) -> str:
+    if isinstance(content, str):
+        return content
+    if content is None:
+        return ""
+    return json.dumps(content, ensure_ascii=False, default=str)
+
+
+def _build_timeline(records: list[dict]) -> list[dict]:
+    """Reconstruct the ordered list of timeline blocks from raw records."""
+    # index tool results by tool_use_id so each tool call can find its output + end time
+    tool_results: dict[str, dict] = {}
+    for record in records:
+        message = record.get("message") or {}
+        content = message.get("content")
+        if record.get("type") == "user" and isinstance(content, list):
+            for block in content:
+                if block.get("type") == "tool_result":
+                    tool_results[block.get("tool_use_id")] = {
+                        "timestamp": record.get("timestamp"),
+                        "content": block.get("content"),
+                        "is_error": block.get("is_error", False),
+                    }
+
+    # map every record to its parent so we can walk past untracked nodes
+    parent_of = {r.get("uuid"): r.get("parentUuid") for r in records if r.get("uuid")}
+    end_by_uuid: dict[str, str] = {}
+
+    def start_for(parent_uuid: str | None, end_time: str) -> str:
+        seen: set[str] = set()
+        current = parent_uuid
+        while current and current not in seen:
+            if current in end_by_uuid:
+                return end_by_uuid[current]
+            seen.add(current)
+            current = parent_of.get(current)
+        return _shift_timestamp(end_time, -10)  # no prior block: show as 10 seconds
+
+    timeline: list[dict] = []
+    for record in records:
+        rtype = record.get("type")
+        timestamp = record.get("timestamp")
+        uuid = record.get("uuid")
+        parent = record.get("parentUuid")
+        message = record.get("message") or {}
+        content = message.get("content")
+
+        if rtype == "user" and isinstance(content, str):
+            timeline.append({
+                "start_time": start_for(parent, timestamp),
+                "end_time": timestamp,
+                "type": "user_message",
+                "title": "User",
+                "content": content,
+            })
+            end_by_uuid[uuid] = timestamp
+
+        elif rtype == "user" and isinstance(content, list):
+            # tool_result: folded into its tool_call, but keep the chain alive
+            end_by_uuid[uuid] = timestamp
+
+        elif rtype == "assistant" and isinstance(content, list):
+            last_end = None
+            for block in content:
+                btype = block.get("type")
+                if btype == "thinking":
+                    blk = {"start_time": start_for(parent, timestamp), "end_time": timestamp,
+                           "type": "thinking", "title": "Thinking", "content": block.get("thinking")}
+                elif btype == "text":
+                    blk = {"start_time": start_for(parent, timestamp), "end_time": timestamp,
+                           "type": "assistant_message", "title": "Assistant", "content": block.get("text")}
+                elif btype == "tool_use":
+                    result = tool_results.get(block.get("id"), {})
+                    end = result.get("timestamp", timestamp)
+                    blk = {"start_time": timestamp, "end_time": end,
+                           "type": "tool_call", "title": block.get("name"),
+                           "content": {"input": block.get("input"), "result": result.get("content"),
+                                       "is_error": result.get("is_error", False)}}
+                else:
+                    continue
+                timeline.append(blk)
+                last_end = blk["end_time"]
+            if last_end is not None:
+                end_by_uuid[uuid] = last_end
+
+        elif rtype == "attachment" and timestamp:
+            attachment = record.get("attachment") or {}
+            timeline.append({
+                "start_time": timestamp,
+                "end_time": timestamp,
+                "type": "attachment",
+                "title": attachment.get("type", "attachment"),
+                "content": attachment.get("content"),
+            })
+            end_by_uuid[uuid] = timestamp
+
+    return timeline
 
 
 class ClaudeCode(AgenticFramework):
@@ -89,20 +178,74 @@ class ClaudeCode(AgenticFramework):
         base = self._data_dir if self._data_dir is not None else Path.home() / ".claude" / "projects"
         self.data_basepath = str(base)
 
+    def _session_paths(self) -> list[str]:
+        return glob.glob(os.path.join(self.data_basepath, "*", "*.jsonl"))
+
+    def _session_path(self, session_id: str) -> str:
+        matches = glob.glob(os.path.join(self.data_basepath, "*", f"{session_id}.jsonl"))
+        if not matches:
+            matches = glob.glob(os.path.join(self.data_basepath, f"{session_id}.jsonl"))
+        if not matches:
+            raise FileNotFoundError(f"unknown session: {session_id}")
+        return matches[0]
+
     def get_sessions_list(self) -> list[SessionMetadata]:
-        return [
-            SessionMetadata(
+        sessions: list[SessionMetadata] = []
+        for path in self._session_paths():
+            session_id = os.path.basename(path).split(".")[0]
+            try:
+                records = _parse_session_file(path)
+            except json.JSONDecodeError as error:
+                print(f"[claudecode] failed to parse {path}: {error}")
+                continue
+
+            title = None
+            created = None
+            modified = None
+            for record in records:
+                rtype = record.get("type")
+                if rtype == "ai-title":
+                    title = record.get("aiTitle")
+                elif rtype == "user" and created is None:
+                    created = record.get("timestamp")
+                elif rtype == "assistant" and record.get("timestamp"):
+                    modified = record.get("timestamp")
+
+            sessions.append(SessionMetadata(
                 session_id=session_id,
-                title=meta["title"],
-                data_path=str(Path(self.data_basepath) / f"{session_id}.jsonl"),
-                timestamp_created=meta["timestamp_created"],
-                timestamp_modified=meta["timestamp_modified"],
-            )
-            for session_id, meta in _MOCK_SESSIONS.items()
-        ]
+                title=title or session_id,
+                data_path=path,
+                timestamp_created=created or "",
+                timestamp_modified=modified or "",
+            ))
+        return sessions
 
     def get_session_trace(self, session_id: str) -> SessionTrace:
-        spans = _MOCK_TRACES.get(session_id)
-        if spans is None:
-            raise FileNotFoundError(f"unknown session: {session_id}")
-        return SessionTrace(session_id=session_id, spans=list(spans))
+        records = _parse_session_file(self._session_path(session_id))
+        timeline = _build_timeline(records)
+
+        starts = [block["start_time"] for block in timeline if block.get("start_time")]
+        origin = _parse_ts(min(starts)) if starts else None
+
+        spans: list[Span] = []
+        for index, block in enumerate(timeline):
+            span_type = _BLOCK_TYPE_TO_SPAN.get(block["type"], SpanType.other)
+
+            ts_start = block.get("start_time") or ""
+            ts_end = block.get("end_time") or ""
+            offset_start = _offset_ms(ts_start, origin) if (origin and ts_start) else 0
+            offset_end = _offset_ms(ts_end, origin) if (origin and ts_end) else offset_start
+
+            spans.append(Span(
+                span_id=f"{session_id}-{index}",
+                type=span_type,
+                title=block.get("title") or "",
+                content=_content_to_str(block.get("content")),
+                timestamp_start=ts_start,
+                timestamp_end=ts_end,
+                offset_start_ms=offset_start,
+                offset_end=offset_end,
+                duration_ms=max(0, offset_end - offset_start),
+            ))
+
+        return SessionTrace(session_id=session_id, spans=spans)

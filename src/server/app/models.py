@@ -17,6 +17,7 @@ class SpanType(str, Enum):
     agent_message = "agent_message"
     agent_thinking = "agent_thinking"
     agent_tool = "agent_tool"
+    other = "other"
 
 
 class Span(BaseModel):
