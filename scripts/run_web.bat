@@ -10,3 +10,4 @@ start "" /b powershell -NoProfile -WindowStyle Hidden -Command "for($i=0;$i -lt 
 
 REM Server + web UI run in the foreground; Ctrl+C stops both.
 call npm run dev
+
