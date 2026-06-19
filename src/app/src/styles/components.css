@@ -354,6 +354,11 @@
 .lm-menu .item:hover { background: var(--bg-alpha-1); }
 .lm-menu .item .shortcut { font-size: 0.72rem; color: var(--text-secondary); margin-left: 20px; }
 .lm-menu .sep { height: 1px; background: var(--bg-slider); margin: 4px 8px; }
+.lm-menu .menu-header {
+    padding: 6px 16px 2px; font-size: 0.62rem; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.05em;
+    color: var(--text-secondary); cursor: default;
+}
 
 /* --- List rows (model-manager style) ------------------------------------- */
 .lm-row {
