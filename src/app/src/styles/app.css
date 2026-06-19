@@ -204,13 +204,19 @@ html, body {
     flex: 1;
     min-width: 0;
     height: 100%;
-    display: grid;
-    grid-template-rows: 7fr 2fr 1fr;
+    display: flex;
+    flex-direction: column;
     gap: 8px;
     padding: 12px;
     overflow: hidden;
     background: var(--bg-primary);
 }
+
+/* Panel heights as flex ratios (70/20/10). When a panel is hidden the visible
+   ones redistribute the space automatically. */
+.canvas-section[data-panel="timeline"]           { flex: 7 1 0; }
+.canvas-section[data-panel="block-info"]         { flex: 2 1 0; }
+.canvas-section[data-panel="timeline-miniature"] { flex: 1 1 0; }
 
 .canvas-section {
     display: flex;

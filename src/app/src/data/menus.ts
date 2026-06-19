@@ -45,6 +45,21 @@ const checkbox = (name: string, checked: boolean): MenuCheckbox => {
   return item;
 };
 
+// Panel-visibility toggle: `checked` is the source of truth for the panel's
+// visibility, and each toggle broadcasts a CustomEvent that AppShell listens for
+// to show/hide the matching panel (lemonade-style lifted state).
+const viewToggle = (name: string, event: string, checked: boolean): MenuCheckbox => {
+  const item: MenuCheckbox = {
+    label: name,
+    checked,
+    onToggle: (next) => {
+      item.checked = next;
+      window.dispatchEvent(new CustomEvent(event, { detail: { visible: next } }));
+    },
+  };
+  return item;
+};
+
 export const menus: Menu[] = [
   {
     label: "File",
@@ -67,9 +82,9 @@ export const menus: Menu[] = [
   {
     label: "View",
     options: [
-      checkbox("Show Sessions", true),
-      checkbox("Show Block Explorer", true),
-      checkbox("Show Timeline Miniature", true),
+      viewToggle("Show Sessions", "view:sessions", true),
+      viewToggle("Show Block Explorer", "view:block-info", true),
+      viewToggle("Show Timeline Miniature", "view:timeline-miniature", true),
       "divider",
       { header: "Timeline" },
       { label: "Fit", onSelect: placeholder("View > Fit") },
