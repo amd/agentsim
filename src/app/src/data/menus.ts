@@ -49,8 +49,9 @@ export const menus: Menu[] = [
   {
     label: "File",
     options: [
-      { label: "Add Data Source", onSelect: placeholder("File > Add Data Source") },
-      { label: "Remove Data Source", onSelect: placeholder("File > Remove Data Source") },
+      { header: "Data Source" },
+      { label: "Add", onSelect: placeholder("File > Data Source > Add") },
+      { label: "Remove", onSelect: placeholder("File > Data Source > Remove") },
     ],
   },
   {
