@@ -30,9 +30,14 @@ export function createSidebar(conversations: Conversation[]): HTMLElement {
     for (const c of sorted) list.append(createConversationBlock(c));
   };
 
+  // Filter order: "live" first, then frameworks in first-seen order.
+  const tags = allTags(conversations).sort((a, b) =>
+    a === "live" ? -1 : b === "live" ? 1 : 0,
+  );
+
   const header = el("div", { class: "sidebar-header" }, [
     el("h3", { class: "sidebar-title", text: "Conversations" }),
-    createTagFilter(allTags(conversations), renderList),
+    createTagFilter(tags, renderList),
   ]);
 
   renderList(new Set());

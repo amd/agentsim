@@ -154,6 +154,16 @@ html, body {
     border-left-color: var(--border-6);
 }
 
+.conversation-title-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.conversation-title-row .live {
+    margin-left: auto;
+}
+
 .conversation-title {
     font-size: 0.8rem;
     font-weight: 500;
