@@ -49,29 +49,32 @@ export const menus: Menu[] = [
   {
     label: "File",
     options: [
-      { label: "Add data source", onSelect: placeholder("File > Add data source") },
-      { label: "Remove data source", onSelect: placeholder("File > Remove data source") },
+      { label: "Add Data Source", onSelect: placeholder("File > Add Data Source") },
+      { label: "Remove Data Source", onSelect: placeholder("File > Remove Data Source") },
     ],
   },
   {
     label: "Tools",
     options: [
-      { label: "A/B test (skills)", onSelect: placeholder("Tools > A/B test (skills)") },
-      { label: "A/B Test (prompts)", onSelect: placeholder("Tools > A/B Test (prompts)") },
       { label: "Compare Sessions", onSelect: placeholder("Tools > Compare Sessions") },
+      "divider",
+      { header: "A/B Test" },
+      { label: "Skills", onSelect: placeholder("Tools > A/B Test > Skills") },
+      { label: "Prompts", onSelect: placeholder("Tools > A/B Test > Prompts") },
     ],
   },
   {
     label: "View",
     options: [
-      checkbox("Show sessions", true),
-      checkbox("Show block explorer", true),
-      checkbox("Show timeline miniature", true),
+      checkbox("Show Sessions", true),
+      checkbox("Show Block Explorer", true),
+      checkbox("Show Timeline Miniature", true),
       "divider",
       { header: "Timeline" },
       { label: "Fit", onSelect: placeholder("View > Fit") },
-      { label: "Expand all", onSelect: placeholder("View > Expand all") },
-      { label: "Collapse all", onSelect: placeholder("View > Collapse all") },
+      { label: "Expand All", onSelect: placeholder("View > Expand All") },
+      { label: "Collapse All", onSelect: placeholder("View > Collapse All") },
+      checkbox("Show Token Usage", true),
     ],
   },
   {
