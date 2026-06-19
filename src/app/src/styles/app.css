@@ -199,13 +199,13 @@ html, body {
     gap: 4px;
 }
 
-/* --- Main canvas (3 stacked sections, 60/20/20) -------------------------- */
+/* --- Main canvas (3 stacked sections, 70/20/10) -------------------------- */
 .canvas {
     flex: 1;
     min-width: 0;
     height: 100%;
     display: grid;
-    grid-template-rows: 60% 20% 20%;
+    grid-template-rows: 7fr 2fr 1fr;
     gap: 8px;
     padding: 12px;
     overflow: hidden;

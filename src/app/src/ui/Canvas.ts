@@ -7,11 +7,11 @@ function section(title: string, placeholder: string): HTMLElement {
   ]);
 }
 
-// Three stacked sections at 60% / 20% / 20% height (grid rows set in app.css).
+// Three stacked sections at 70% / 20% / 10% height (grid rows set in app.css).
 export function createCanvas(): HTMLElement {
   return el("div", { class: "canvas" }, [
-    section("Main", "Primary workspace (60%)."),
-    section("Panel A", "Secondary panel (20%)."),
-    section("Panel B", "Secondary panel (20%)."),
+    section("Timeline", "Primary workspace (70%)."),
+    section("Block Info", "Secondary panel (20%)."),
+    section("Timeline Miniature", "Secondary panel (10%)."),
   ]);
 }
