@@ -255,6 +255,10 @@
 .lm-tag.embeddings   { color: var(--label-embeddings); }
 .lm-tag.reranking    { color: var(--label-reranking); }
 .lm-tag.tool-calling { color: var(--label-tool-calling); }
+.lm-tag.claude-code  { color: var(--brand-claude-code); }
+.lm-tag.cursor       { color: var(--brand-cursor); }
+.lm-tag.codex        { color: var(--brand-codex); }
+.lm-tag.live         { color: var(--error-hover); }
 
 /* --- Toasts -------------------------------------------------------------- */
 .lm-toast {

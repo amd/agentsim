@@ -71,6 +71,11 @@
     --label-tool-calling: #38B2AC;
     --label-custom: #FAD02C;
 
+    /* --- Agentic framework brand colors (official primaries) --- */
+    --brand-claude-code: #D97757; /* Anthropic coral */
+    --brand-cursor: #E8E8E8;      /* Cursor is monochrome black/white; white half for dark UI */
+    --brand-codex: #10A37F;       /* OpenAI green */
+
     /* --- Toasts --- */
     --toast-success-border: rgba(34, 197, 94, 0.4);
     --toast-success-surface: linear-gradient(135deg, #1a1a1a 0%, #151f17 100%);
