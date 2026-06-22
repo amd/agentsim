@@ -1,7 +1,8 @@
 """Agentic-framework backend for Claude Code.
 
-Reads Claude Code's transcripts under ``~/.claude/projects/<project>/<id>.jsonl``
-and flattens each into a span trace.
+The data basepath is Claude Code's home (``~/.claude``); transcripts are read
+from its ``projects/<project>/<id>.jsonl`` subtree and flattened into a span
+trace.
 
 Timing is reconstructed the way the timeline needs it: a block *ends* at its own
 record timestamp and *starts* where the nearest preceding block ended. Preceding
@@ -183,7 +184,7 @@ def _build_timeline(records: list[dict]) -> list[dict]:
 class ClaudeCode(AgenticFramework):
     name = "Claude Code"
     alias = "claudecode"
-    default_data_basepath = Path.home() / ".claude" / "projects"
+    default_data_basepath = Path.home() / ".claude"
     primary_color = "#D97757"  # Anthropic coral
     remove_model_nameprefix = "claude-"
 
@@ -196,13 +197,18 @@ class ClaudeCode(AgenticFramework):
         base = self._data_dir if self._data_dir is not None else self.default_data_basepath
         self.data_basepath = str(base)
 
+    # Transcripts live under "<data_basepath>/projects/<project>/<id>.jsonl";
+    # data_basepath is the framework home (e.g. ~/.claude), not the projects dir.
+    def _projects_dir(self) -> str:
+        return os.path.join(self.data_basepath, "projects")
+
     def _session_paths(self) -> list[str]:
-        return glob.glob(os.path.join(self.data_basepath, "*", "*.jsonl"))
+        return glob.glob(os.path.join(self._projects_dir(), "*", "*.jsonl"))
 
     def _session_path(self, session_id: str) -> str:
-        matches = glob.glob(os.path.join(self.data_basepath, "*", f"{session_id}.jsonl"))
+        matches = glob.glob(os.path.join(self._projects_dir(), "*", f"{session_id}.jsonl"))
         if not matches:
-            matches = glob.glob(os.path.join(self.data_basepath, f"{session_id}.jsonl"))
+            matches = glob.glob(os.path.join(self._projects_dir(), f"{session_id}.jsonl"))
         if not matches:
             raise FileNotFoundError(f"unknown session: {session_id}")
         return matches[0]
