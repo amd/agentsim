@@ -106,6 +106,7 @@ html, body {
 }
 
 .sidebar-actions {
+    position: relative;
     display: flex;
     align-items: center;
     gap: 6px;
@@ -119,7 +120,27 @@ html, body {
     border-color: var(--border-5);
 }
 
-.sidebar-action-wrap { position: relative; }
+/* "Work in progress" hover tooltip for placeholder action buttons. */
+.wip-tip { position: relative; }
+.wip-tip::after {
+    content: attr(data-wip);
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    z-index: 1100;
+    white-space: nowrap;
+    padding: 5px 8px;
+    font-size: 0.66rem;
+    color: var(--text-primary);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-primary);
+    border-radius: var(--radius-md);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease;
+}
+.wip-tip:hover::after { opacity: 1; }
 
 /* Filter "miniature" — floating panel anchored to the filter icon. */
 .filter-popover {

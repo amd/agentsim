@@ -10,11 +10,21 @@ const FILTER_SVG =
   '<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>';
 const SEARCH_SVG =
   '<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>';
+const RELOAD_SVG =
+  '<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>';
 
 function iconButton(svg: string, label: string): HTMLButtonElement {
   const btn = el("button", { class: "lm-icon-btn", "aria-label": label, title: label });
   btn.innerHTML = svg;
   return btn;
+}
+
+// Mark a placeholder button: show a "work in progress" tooltip on hover and drop
+// the native title so the two don't stack.
+function markWip(btn: HTMLButtonElement): void {
+  btn.classList.add("wip-tip");
+  btn.dataset.wip = "Work in progress — coming soon";
+  btn.removeAttribute("title");
 }
 
 // Conversation navigator: a title row with filter/search actions over a
@@ -78,16 +88,18 @@ export function createSidebar(conversations: Conversation[]): HTMLElement {
   popover.addEventListener("click", (e) => e.stopPropagation());
   document.addEventListener("click", closePopover);
 
-  const filterWrap = el("div", { class: "sidebar-action-wrap" }, [filterBtn, popover]);
+  // Reload and Search are placeholders: a hover tooltip announces they're not
+  // wired up yet. (Reload will re-fetch session data later.)
+  const reloadBtn = iconButton(RELOAD_SVG, "Reload");
+  markWip(reloadBtn);
 
-  // Search is a placeholder for future functionality.
   const searchBtn = iconButton(SEARCH_SVG, "Search");
-  searchBtn.addEventListener("click", () => console.log("[sidebar] search (placeholder)"));
+  markWip(searchBtn);
 
   const header = el("div", { class: "sidebar-header" }, [
     el("div", { class: "sidebar-header-row" }, [
       el("h3", { class: "sidebar-title", text: "Conversations" }),
-      el("div", { class: "sidebar-actions" }, [filterWrap, searchBtn]),
+      el("div", { class: "sidebar-actions" }, [filterBtn, reloadBtn, searchBtn, popover]),
     ]),
   ]);
 
