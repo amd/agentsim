@@ -87,6 +87,8 @@ export const menus: Menu[] = [
       viewToggle("Show Timeline Miniature", "view:timeline-miniature", true),
       "divider",
       { header: "Timeline" },
+      { label: "Zoom In", onSelect: placeholder("View > Zoom In") },
+      { label: "Zoom Out", onSelect: placeholder("View > Zoom Out") },
       { label: "Fit", onSelect: placeholder("View > Fit") },
       { label: "Expand All", onSelect: placeholder("View > Expand All") },
       { label: "Collapse All", onSelect: placeholder("View > Collapse All") },
