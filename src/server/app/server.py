@@ -88,6 +88,7 @@ def create_app(registry: FrameworkRegistry) -> FastAPI:
                 name=fw.name,
                 data_basepath=fw.data_basepath,
                 session_count=len(fw.get_sessions_list()),
+                primary_color=fw.primary_color,
             )
             for alias, fw in registry.active.items()
         ]
@@ -95,7 +96,10 @@ def create_app(registry: FrameworkRegistry) -> FastAPI:
     @app.get("/frameworks/available")
     def available_frameworks() -> list[AvailableFramework]:
         """Every framework type the server can build, active or not."""
-        return [AvailableFramework(alias=cls.alias, name=cls.name) for cls in registry.available()]
+        return [
+            AvailableFramework(alias=cls.alias, name=cls.name, primary_color=cls.primary_color)
+            for cls in registry.available()
+        ]
 
     @app.get("/frameworks/detected")
     def detected_frameworks() -> list[DetectedFramework]:
@@ -107,7 +111,9 @@ def create_app(registry: FrameworkRegistry) -> FastAPI:
                 continue
             path = cls.detect()
             if path:
-                found.append(DetectedFramework(alias=cls.alias, name=cls.name, path=path))
+                found.append(DetectedFramework(
+                    alias=cls.alias, name=cls.name, path=path, primary_color=cls.primary_color,
+                ))
         return found
 
     @app.post("/frameworks", status_code=201)
@@ -127,6 +133,7 @@ def create_app(registry: FrameworkRegistry) -> FastAPI:
             name=fw.name,
             data_basepath=fw.data_basepath,
             session_count=len(fw.get_sessions_list()),
+            primary_color=fw.primary_color,
         )
 
     @app.delete("/frameworks/{alias}", status_code=204)

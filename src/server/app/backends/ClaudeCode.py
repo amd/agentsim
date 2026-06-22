@@ -184,7 +184,7 @@ class ClaudeCode(AgenticFramework):
     name = "Claude Code"
     alias = "claudecode"
     default_data_basepath = Path.home() / ".claude" / "projects"
-    primary_color = "FF00AA"
+    primary_color = "#D97757"  # Anthropic coral
 
     def __init__(self, data_dir: Path | str | None = None) -> None:
         self._data_dir = Path(data_dir) if data_dir is not None else None

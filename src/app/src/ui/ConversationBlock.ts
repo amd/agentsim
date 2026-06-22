@@ -135,15 +135,17 @@ export function createConversationBlock(
   conversation: Conversation,
   showTime = false,
 ): HTMLElement {
-  const isLive = conversation.tags.includes("live");
-  const frameworkTags = conversation.tags.filter((t) => t !== "live");
-
   const tooltip = `${conversation.model} · ${conversation.effort} effort`;
+  const frameworkChip = el("span", {
+    class: "lm-tag",
+    text: conversation.frameworkName,
+    title: tooltip,
+  });
+  if (conversation.frameworkColor) frameworkChip.style.color = conversation.frameworkColor;
+
   const tags = el("div", { class: "conversation-tags" }, [
-    ...(isLive ? [el("span", { class: "lm-tag live", text: "live" })] : []),
-    ...frameworkTags.map((t) =>
-      el("span", { class: `lm-tag ${t}`, text: t, title: tooltip }),
-    ),
+    ...(conversation.isLive ? [el("span", { class: "lm-tag live", text: "live" })] : []),
+    frameworkChip,
   ]);
 
   const title = el("div", { class: "conversation-title-row" }, [

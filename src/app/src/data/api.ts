@@ -2,7 +2,7 @@
 // management, and filtering; this module just builds requests from filter state
 // and maps the wire types into the UI's Conversation model.
 
-import type { Conversation, Tag } from "./conversations.js";
+import type { Conversation } from "./conversations.js";
 import type { Filters } from "../ui/FilterPanel.js";
 import { DAY_MS, startOfToday, type Section } from "./sections.js";
 
@@ -46,12 +46,14 @@ export interface FrameworkInfo {
   name: string;
   data_basepath: string;
   session_count: number;
+  primary_color: string;
 }
 
 // A framework type the server knows how to build, whether or not it's active.
 export interface AvailableFramework {
   alias: string;
   name: string;
+  primary_color: string;
 }
 
 // A catalog framework whose default data location exists but that isn't active
@@ -60,28 +62,47 @@ export interface DetectedFramework {
   alias: string;
   name: string;
   path: string;
+  primary_color: string;
 }
 
-// Backend framework alias -> the UI Tag whose chip carries the accent color.
-const ALIAS_TO_TAG: Record<string, Tag> = {
-  claudecode: "claude-code",
-  cursor: "cursor",
-  codex: "codex",
-};
-
-function aliasToTag(alias: string): Tag {
-  return ALIAS_TO_TAG[alias] ?? "claude-code";
+// Per-framework display metadata (name + brand color), keyed by alias. Sourced
+// from the backend so the frontend hardcodes no framework colors. Cached for the
+// session list's lifetime and invalidated when the active set changes.
+interface FrameworkMeta {
+  name: string;
+  color: string;
 }
 
-function toConversation(s: WireSession): Conversation {
-  const tags: Tag[] = [aliasToTag(s.framework)];
-  if (s.is_live) tags.push("live");
+let frameworkMeta: Map<string, FrameworkMeta> | null = null;
+
+async function frameworkMetaMap(): Promise<Map<string, FrameworkMeta>> {
+  if (frameworkMeta) return frameworkMeta;
+  const frameworks = await fetchFrameworks();
+  frameworkMeta = new Map(
+    frameworks.map((f) => [f.alias, { name: f.name, color: f.primary_color }]),
+  );
+  return frameworkMeta;
+}
+
+// Adding/removing a data source changes the active set; drop the cache so the
+// next fetch picks up the new framework metadata.
+if (typeof window !== "undefined") {
+  window.addEventListener("frameworks:changed", () => {
+    frameworkMeta = null;
+  });
+}
+
+function toConversation(s: WireSession, meta: Map<string, FrameworkMeta>): Conversation {
+  const fw = meta.get(s.framework);
   return {
     id: s.session_id,
     title: s.title,
     projectPath: s.project_path,
     date: s.timestamp_modified || s.timestamp_created,
-    tags,
+    framework: s.framework,
+    frameworkName: fw?.name ?? s.framework,
+    frameworkColor: fw?.color ?? "",
+    isLive: s.is_live,
     model: s.model,
     effort: (s.effort_level || "medium") as Conversation["effort"],
   };
@@ -120,10 +141,13 @@ function queryFor(filters: Filters): string {
 }
 
 export async function fetchSessions(filters: Filters): Promise<Conversation[]> {
-  const res = await fetch(`${BASE}/sessions${queryFor(filters)}`);
+  const [res, meta] = await Promise.all([
+    fetch(`${BASE}/sessions${queryFor(filters)}`),
+    frameworkMetaMap(),
+  ]);
   if (!res.ok) throw new Error(`GET /sessions failed: ${res.status}`);
   const rows = (await res.json()) as WireSession[];
-  return rows.map(toConversation);
+  return rows.map((row) => toConversation(row, meta));
 }
 
 export async function fetchFacets(): Promise<Facets> {

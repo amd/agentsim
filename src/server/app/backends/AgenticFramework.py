@@ -18,6 +18,7 @@ class AgenticFramework(ABC):
     alias: str           # short id used on the API / CLI, e.g. "claudecode"
     data_basepath: str   # root directory the framework stores its sessions under
     default_data_basepath: str
+    primary_color: str   # brand color as a CSS hex string, e.g. "#D97757"
 
     @classmethod
     def detect(cls) -> str | None:

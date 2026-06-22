@@ -96,6 +96,7 @@ class AvailableFramework(BaseModel):
 
     alias: str
     name: str
+    primary_color: str = ""
 
 
 class FrameworkInfo(BaseModel):
@@ -105,6 +106,7 @@ class FrameworkInfo(BaseModel):
     name: str
     data_basepath: str = ""
     session_count: int = 0
+    primary_color: str = ""
 
 
 class DetectedFramework(BaseModel):
@@ -114,6 +116,7 @@ class DetectedFramework(BaseModel):
     alias: str
     name: str
     path: str
+    primary_color: str = ""
 
 
 class AddFrameworkRequest(BaseModel):
