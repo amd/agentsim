@@ -46,8 +46,11 @@ class SessionMetadata(BaseModel):
     session_id: str
     title: str
     data_path: str
-    project_path: str
     is_live: bool
+
+    project_path: str
+    project_slug: str
+
     model: str
     effort_level: str
 
