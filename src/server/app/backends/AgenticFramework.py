@@ -19,6 +19,9 @@ class AgenticFramework(ABC):
     data_basepath: str   # root directory the framework stores its sessions under
     default_data_basepath: str
     primary_color: str   # brand color as a CSS hex string, e.g. "#D97757"
+    # Prefix stripped from model names before they leave the server, e.g.
+    # "claude-" turns "claude-opus-4" into "opus-4". "" leaves names untouched.
+    remove_model_nameprefix: str = ""
 
     @classmethod
     def detect(cls) -> str | None:

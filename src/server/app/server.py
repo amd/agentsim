@@ -62,13 +62,24 @@ def create_app(registry: FrameworkRegistry) -> FastAPI:
             raise HTTPException(status_code=404, detail=f"unknown framework: {alias} (known: {known})")
         return backend
 
+    def _prepare(
+        items: list[SessionMetadata], alias: str, backend: AgenticFramework
+    ) -> list[SessionMetadata]:
+        """Stamp each session with its framework alias and apply the framework's
+        model-name prefix stripping. Keeps this normalization on the server so
+        clients display whatever they're given."""
+        prefix = backend.remove_model_nameprefix
+        for item in items:
+            item.framework = alias
+            if prefix and item.model.startswith(prefix):
+                item.model = item.model[len(prefix):]
+        return items
+
     def _all_sessions() -> list[SessionMetadata]:
         """Union every active backend's sessions, stamping each with its alias."""
         merged: list[SessionMetadata] = []
         for alias, backend in registry.active.items():
-            for item in backend.get_sessions_list():
-                item.framework = alias
-                merged.append(item)
+            merged.extend(_prepare(backend.get_sessions_list(), alias, backend))
         merged.sort(key=lambda s: s.timestamp_modified, reverse=True)
         return merged
 
@@ -230,10 +241,7 @@ def create_app(registry: FrameworkRegistry) -> FastAPI:
     @app.get("/frameworks/{framework}/sessions")
     def sessions(framework: str) -> list[SessionMetadata]:
         backend = _framework(framework)
-        items = backend.get_sessions_list()
-        for item in items:
-            item.framework = framework
-        return items
+        return _prepare(backend.get_sessions_list(), framework, backend)
 
     @app.get("/frameworks/{framework}/sessions/{session_id}")
     def session(framework: str, session_id: str) -> SessionTrace:

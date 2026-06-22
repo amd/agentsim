@@ -393,9 +393,18 @@ html, body {
 
 .conversation-tags {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     justify-content: flex-end;
     gap: 4px;
+    min-width: 0;
+}
+
+/* Let the model tag shrink/ellipsis so all tags stay on one row. */
+.conversation-tags .lm-tag {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 /* --- Manage Data Sources modal ------------------------------------------- */

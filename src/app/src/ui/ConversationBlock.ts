@@ -143,8 +143,15 @@ export function createConversationBlock(
   });
   if (conversation.frameworkColor) frameworkChip.style.color = conversation.frameworkColor;
 
+  // Model chip sits in front of the framework chip and shares its brand color.
+  const modelChip = conversation.model
+    ? el("span", { class: "lm-tag", text: conversation.model, title: tooltip })
+    : null;
+  if (modelChip && conversation.frameworkColor) modelChip.style.color = conversation.frameworkColor;
+
   const tags = el("div", { class: "conversation-tags" }, [
     ...(conversation.isLive ? [el("span", { class: "lm-tag live", text: "live" })] : []),
+    ...(modelChip ? [modelChip] : []),
     frameworkChip,
   ]);
 
