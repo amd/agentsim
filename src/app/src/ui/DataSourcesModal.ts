@@ -16,6 +16,24 @@ function notifyChanged(): void {
   window.dispatchEvent(new CustomEvent("frameworks:changed"));
 }
 
+// "#RRGGBB" -> "rgba(r, g, b, a)", for a subtle background wash in the brand color.
+function tint(hex: string, alpha: number): string {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) return "transparent";
+  const n = parseInt(m[1], 16);
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
+}
+
+// Carry the framework's brand color on the whole row: colored name, accent
+// border, and a faint background wash.
+function paintRow(row: HTMLElement, name: HTMLElement, color: string): void {
+  if (!color) return;
+  name.style.color = color;
+  row.style.borderColor = tint(color, 0.5);
+  row.style.borderLeft = `3px solid ${color}`;
+  row.style.background = tint(color, 0.12);
+}
+
 // Manage Data Sources: a modal over the app that lists the active frameworks
 // (the backend's active set) and lets the user add or remove them. The backend
 // owns the data; this view fetches on open and re-fetches after every mutation,
@@ -44,13 +62,16 @@ function frameworkRow(fw: FrameworkInfo, refresh: () => void): HTMLElement {
     }
   });
 
-  return el("div", { class: "ds-row" }, [
+  const name = el("div", { class: "ds-row-name", text: fw.name });
+  const row = el("div", { class: "ds-row" }, [
     el("div", { class: "ds-row-text" }, [
-      el("div", { class: "ds-row-name", text: fw.name }),
+      name,
       el("div", { class: "ds-row-meta", text: meta }),
     ]),
     del,
   ]);
+  paintRow(row, name, fw.primary_color);
+  return row;
 }
 
 // Render one auto-detected framework: its name + discovered path, with a
@@ -68,13 +89,16 @@ function detectedRow(fw: DetectedFramework, refresh: () => void): HTMLElement {
     }
   });
 
-  return el("div", { class: "ds-row" }, [
+  const name = el("div", { class: "ds-row-name", text: fw.name });
+  const row = el("div", { class: "ds-row" }, [
     el("div", { class: "ds-row-text" }, [
-      el("div", { class: "ds-row-name", text: fw.name }),
+      name,
       el("div", { class: "ds-row-meta", text: fw.path }),
     ]),
     add,
   ]);
+  paintRow(row, name, fw.primary_color);
+  return row;
 }
 
 // Build the "add a data source" control: a picker of catalog frameworks not yet

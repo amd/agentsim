@@ -16,9 +16,13 @@ from pathlib import Path
 
 from app.backends.AgenticFramework import AgenticFramework
 from app.backends.ClaudeCode import ClaudeCode
+from app.backends.Codex import Codex
+from app.backends.Cursor import Cursor
 
 # The catalog: every framework type the server can build, keyed by alias.
-AVAILABLE: dict[str, type[AgenticFramework]] = {cls.alias: cls for cls in (ClaudeCode,)}
+AVAILABLE: dict[str, type[AgenticFramework]] = {
+    cls.alias: cls for cls in (ClaudeCode, Cursor, Codex)
+}
 
 
 class FrameworkRegistry:
