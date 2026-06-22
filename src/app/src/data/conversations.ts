@@ -16,7 +16,7 @@ export type Effort = "low" | "medium" | "high";
 export interface Conversation {
   id: string;
   title: string;
-  subtitle: string;
+  projectPath: string; // absolute path to the project the session ran in
   date: string; // ISO 8601
   tags: Tag[];
   model: string; // model the framework ran, e.g. "Claude Opus 4.7"
@@ -27,7 +27,7 @@ export const conversations: Conversation[] = [
   {
     id: "c1",
     title: "Refactor inference loop",
-    subtitle: "Streaming tokens without blocking the UI thread",
+    projectPath: "C:\\Users\\mdokukin\\dev\\codebase\\inference-engine",
     date: "2026-06-16T14:22:00Z",
     tags: ["claude-code", "live"],
     model: "Claude Opus 4.7",
@@ -36,7 +36,7 @@ export const conversations: Conversation[] = [
   {
     id: "c2",
     title: "Vision model comparison",
-    subtitle: "Benchmarking captioning quality across checkpoints",
+    projectPath: "C:\\Users\\mdokukin\\projects\\research\\vision-bench",
     date: "2026-06-15T09:05:00Z",
     tags: ["cursor"],
     model: "Claude Sonnet 4.6",
@@ -45,7 +45,7 @@ export const conversations: Conversation[] = [
   {
     id: "c3",
     title: "RAG embeddings pipeline",
-    subtitle: "Chunking strategy and vector store choice",
+    projectPath: "C:\\dev\\codebase\\rag-pipeline",
     date: "2026-06-14T18:40:00Z",
     tags: ["codex"],
     model: "GPT-5",
@@ -54,7 +54,7 @@ export const conversations: Conversation[] = [
   {
     id: "c4",
     title: "Tool-calling agent draft",
-    subtitle: "Wiring function schemas into the chat loop",
+    projectPath: "C:\\Users\\mdokukin\\work\\agents\\tool-agent",
     date: "2026-06-13T11:15:00Z",
     tags: ["claude-code"],
     model: "Claude Sonnet 4.6",
@@ -63,7 +63,7 @@ export const conversations: Conversation[] = [
   {
     id: "c5",
     title: "Chain-of-thought prompts",
-    subtitle: "Improving multi-step math reliability",
+    projectPath: "D:\\experiments\\prompting\\cot-math",
     date: "2026-06-11T16:50:00Z",
     tags: ["cursor"],
     model: "GPT-5",
@@ -72,7 +72,7 @@ export const conversations: Conversation[] = [
   {
     id: "c6",
     title: "Reranker eval harness",
-    subtitle: "Measuring nDCG against the baseline retriever",
+    projectPath: "C:\\dev\\eval\\reranker-harness",
     date: "2026-06-09T08:30:00Z",
     tags: ["codex"],
     model: "o3",
@@ -81,7 +81,7 @@ export const conversations: Conversation[] = [
   {
     id: "c7",
     title: "Quantization experiments",
-    subtitle: "4-bit vs 8-bit latency and accuracy trade-offs",
+    projectPath: "C:\\Users\\mdokukin\\research\\quantization-lab",
     date: "2026-06-07T13:00:00Z",
     tags: ["claude-code"],
     model: "Claude Opus 4.7",

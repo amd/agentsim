@@ -226,6 +226,8 @@ html, body {
     font-size: 0.69rem;
     line-height: 1.45;
     color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
 }
 
 .conversation-meta {
