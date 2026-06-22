@@ -87,11 +87,15 @@ function detectedRow(fw: FrameworkInfo, refresh: () => void): HTMLElement {
     }
   });
 
+  const meta = [fw.data_basepath, `${fw.session_count} sessions`]
+    .filter(Boolean)
+    .join("  ·  ");
+
   const name = el("div", { class: "ds-row-name", text: fw.name });
   const row = el("div", { class: "ds-row" }, [
     el("div", { class: "ds-row-text" }, [
       name,
-      el("div", { class: "ds-row-meta", text: fw.data_basepath }),
+      el("div", { class: "ds-row-meta", text: meta }),
     ]),
     add,
   ]);

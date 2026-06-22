@@ -107,11 +107,14 @@ def create_app(registry: FrameworkRegistry) -> FastAPI:
             if cls.alias in registry.active:
                 continue
             path = cls.detect()
-            if path:
-                found.append(FrameworkInfo(
-                    alias=cls.alias, name=cls.name, primary_color=cls.primary_color,
-                    data_basepath=path,
-                ))
+            if not path:
+                continue
+            probe = cls(path)
+            probe.init()
+            found.append(FrameworkInfo(
+                alias=cls.alias, name=cls.name, primary_color=cls.primary_color,
+                data_basepath=path, session_count=len(probe.get_sessions_list()),
+            ))
         return found
 
     @app.post("/frameworks", status_code=201)
