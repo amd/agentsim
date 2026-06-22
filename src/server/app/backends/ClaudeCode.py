@@ -183,17 +183,16 @@ def _build_timeline(records: list[dict]) -> list[dict]:
 class ClaudeCode(AgenticFramework):
     name = "Claude Code"
     alias = "claudecode"
+    default_data_basepath = Path.home() / ".claude" / "projects"
+    primary_color = "FF00AA"
 
     def __init__(self, data_dir: Path | str | None = None) -> None:
         self._data_dir = Path(data_dir) if data_dir is not None else None
         self.data_basepath = ""
 
-    @classmethod
-    def default_data_path(cls) -> Path:
-        return Path.home() / ".claude" / "projects"
 
     def init(self) -> None:
-        base = self._data_dir if self._data_dir is not None else self.default_data_path()
+        base = self._data_dir if self._data_dir is not None else self.default_data_basepath
         self.data_basepath = str(base)
 
     def _session_paths(self) -> list[str]:

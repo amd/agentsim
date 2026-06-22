@@ -17,11 +17,7 @@ class AgenticFramework(ABC):
     name: str            # human-readable name, e.g. "Claude Code"
     alias: str           # short id used on the API / CLI, e.g. "claudecode"
     data_basepath: str   # root directory the framework stores its sessions under
-
-    @classmethod
-    @abstractmethod
-    def default_data_path(cls) -> Path:
-        """Where this framework stores its sessions when no path is overridden."""
+    default_data_basepath: str
 
     @classmethod
     def detect(cls) -> str | None:
@@ -29,7 +25,7 @@ class AgenticFramework(ABC):
 
         Used to auto-discover installed frameworks the user hasn't added yet.
         """
-        path = cls.default_data_path()
+        path = Path(cls.default_data_basepath)
         return str(path) if path.exists() else None
 
     @abstractmethod
