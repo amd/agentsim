@@ -46,6 +46,9 @@ class SessionMetadata(BaseModel):
     session_id: str
     title: str
     data_path: str
+    is_live: bool
+    model: str
+    effort_level: str
 
     timestamp_created: str
     timestamp_modified: str
