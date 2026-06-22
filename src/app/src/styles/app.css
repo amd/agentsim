@@ -295,7 +295,8 @@ html, body {
     text-transform: uppercase;
     letter-spacing: 0.07em;
     color: var(--text-secondary);
-    background: var(--bg-alpha-03);
+    /* Opaque base under the tint so stacked sticky headers don't show through. */
+    background: linear-gradient(var(--bg-alpha-03), var(--bg-alpha-03)), var(--model-manager-bg);
     border-radius: var(--radius-md);
 }
 /* Extra breathing room above every section except the first. */
