@@ -32,8 +32,8 @@ impl ServerProcess {
 
         println!("[host] starting python server: {} -m app.main", python.display());
 
-        // No --data-dir: each backend falls back to its own default location
-        // (ClaudeCode reads ~/.claude/projects), so the app shows real sessions.
+        // No --config-dir: config.json defaults to ~/.cache/.agent-sim. The
+        // active set starts empty; the user adds data sources from the app.
         let result = Command::new(python)
             .current_dir(&server_dir)
             .arg("-m")

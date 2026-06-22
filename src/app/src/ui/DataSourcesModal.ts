@@ -2,11 +2,19 @@ import { el, clear } from "./dom.js";
 import {
   addFramework,
   fetchAvailableFrameworks,
+  fetchDetectedFrameworks,
   fetchFrameworks,
   removeFramework,
   type AvailableFramework,
+  type DetectedFramework,
   type FrameworkInfo,
 } from "../data/api.js";
+
+// Tell the rest of the app the active set changed so dependent views (e.g. the
+// sidebar's session list) re-fetch instead of showing stale data.
+function notifyChanged(): void {
+  window.dispatchEvent(new CustomEvent("frameworks:changed"));
+}
 
 // Manage Data Sources: a modal over the app that lists the active frameworks
 // (the backend's active set) and lets the user add or remove them. The backend
@@ -29,6 +37,7 @@ function frameworkRow(fw: FrameworkInfo, refresh: () => void): HTMLElement {
     del.disabled = true;
     try {
       await removeFramework(fw.alias);
+      notifyChanged();
       refresh();
     } catch {
       del.disabled = false;
@@ -41,6 +50,30 @@ function frameworkRow(fw: FrameworkInfo, refresh: () => void): HTMLElement {
       el("div", { class: "ds-row-meta", text: meta }),
     ]),
     del,
+  ]);
+}
+
+// Render one auto-detected framework: its name + discovered path, with a
+// one-click Add that activates it at that default location.
+function detectedRow(fw: DetectedFramework, refresh: () => void): HTMLElement {
+  const add = el("button", { class: "lm-btn lm-btn-accent", text: "Add", title: `Add ${fw.name}` });
+  add.addEventListener("click", async () => {
+    add.disabled = true;
+    try {
+      await addFramework(fw.alias, fw.path);
+      notifyChanged();
+      refresh();
+    } catch {
+      add.disabled = false;
+    }
+  });
+
+  return el("div", { class: "ds-row" }, [
+    el("div", { class: "ds-row-text" }, [
+      el("div", { class: "ds-row-name", text: fw.name }),
+      el("div", { class: "ds-row-meta", text: fw.path }),
+    ]),
+    add,
   ]);
 }
 
@@ -67,6 +100,7 @@ function addControl(inactive: AvailableFramework[], refresh: () => void): HTMLEl
     error.textContent = "";
     try {
       await addFramework(select.value, path.value.trim());
+      notifyChanged();
       refresh();
     } catch (e) {
       error.textContent = e instanceof Error ? e.message : "Failed to add data source.";
@@ -89,9 +123,10 @@ export function openDataSourcesModal(): void {
     clear(body);
     body.append(el("div", { class: "ds-status", text: "Loading…" }));
     try {
-      const [active, available] = await Promise.all([
+      const [active, available, detected] = await Promise.all([
         fetchFrameworks(),
         fetchAvailableFrameworks(),
+        fetchDetectedFrameworks(),
       ]);
       const activeAliases = new Set(active.map((f) => f.alias));
       const inactive = available.filter((f) => !activeAliases.has(f.alias));
@@ -105,6 +140,14 @@ export function openDataSourcesModal(): void {
           el("div", { class: "ds-list" }, active.map((f) => frameworkRow(f, () => void render()))),
         );
       }
+
+      if (detected.length > 0) {
+        body.append(el("div", { class: "ds-section-title", text: "Detected" }));
+        body.append(
+          el("div", { class: "ds-list" }, detected.map((f) => detectedRow(f, () => void render()))),
+        );
+      }
+
       body.append(el("div", { class: "ds-section-title", text: "Add data source" }));
       body.append(addControl(inactive, () => void render()));
     } catch {

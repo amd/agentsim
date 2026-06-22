@@ -21,6 +21,7 @@ from app.backends.AgenticFramework import AgenticFramework
 from app.models import (
     AddFrameworkRequest,
     AvailableFramework,
+    DetectedFramework,
     FrameworkFacet,
     FrameworkInfo,
     ProjectFacet,
@@ -95,6 +96,19 @@ def create_app(registry: FrameworkRegistry) -> FastAPI:
     def available_frameworks() -> list[AvailableFramework]:
         """Every framework type the server can build, active or not."""
         return [AvailableFramework(alias=cls.alias, name=cls.name) for cls in registry.available()]
+
+    @app.get("/frameworks/detected")
+    def detected_frameworks() -> list[DetectedFramework]:
+        """Catalog frameworks whose default data location exists but that aren't
+        active yet -- the basis for the Manage Data Sources "detected" list."""
+        found: list[DetectedFramework] = []
+        for cls in registry.available():
+            if cls.alias in registry.active:
+                continue
+            path = cls.detect()
+            if path:
+                found.append(DetectedFramework(alias=cls.alias, name=cls.name, path=path))
+        return found
 
     @app.post("/frameworks", status_code=201)
     def add_framework(body: AddFrameworkRequest) -> FrameworkInfo:

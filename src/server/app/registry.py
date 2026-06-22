@@ -22,12 +22,8 @@ AVAILABLE: dict[str, type[AgenticFramework]] = {cls.alias: cls for cls in (Claud
 
 
 class FrameworkRegistry:
-    def __init__(self, state_path: Path, default_data_dir: str | None = None) -> None:
+    def __init__(self, state_path: Path) -> None:
         self._state_path = state_path
-        # Used only when seeding the active set on first run: each framework reads
-        # ``<default_data_dir>/<alias>``. ``None`` means use each framework's own
-        # default location (e.g. ClaudeCode -> ~/.claude/projects).
-        self._default_data_dir = default_data_dir
         self.active: dict[str, AgenticFramework] = {}
         # Remember the path each active framework was added with (``None`` = its
         # own default) so persistence round-trips the original intent.
@@ -72,25 +68,16 @@ class FrameworkRegistry:
     def load(self) -> None:
         """Restore the active set from disk.
 
-        On first run (no state file) every catalog framework is activated with
-        its default path, preserving the out-of-the-box behavior.
+        On first run (no state file) the active set starts empty -- the user
+        adds data sources from the catalog (manually or from auto-detection).
         """
-        entries: list[dict] | None = None
+        entries: list[dict] = []
         if self._state_path.exists():
             try:
                 data = json.loads(self._state_path.read_text(encoding="utf-8"))
-                entries = data.get("active")
+                entries = data.get("active") or []
             except (OSError, json.JSONDecodeError) as error:
                 print(f"[registry] failed to read {self._state_path}: {error}")
-
-        if entries is None:
-            entries = [
-                {
-                    "alias": alias,
-                    "path": str(Path(self._default_data_dir) / alias) if self._default_data_dir else None,
-                }
-                for alias in AVAILABLE
-            ]
 
         self.active.clear()
         self._paths.clear()

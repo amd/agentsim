@@ -107,6 +107,15 @@ class FrameworkInfo(BaseModel):
     session_count: int = 0
 
 
+class DetectedFramework(BaseModel):
+    """A catalog framework whose default data location exists on this machine but
+    that isn't active yet -- offered for one-click activation."""
+
+    alias: str
+    name: str
+    path: str
+
+
 class AddFrameworkRequest(BaseModel):
     """Body for activating a framework. ``path`` overrides the framework's
     default data location; ``None`` uses its default."""

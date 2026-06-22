@@ -188,8 +188,12 @@ class ClaudeCode(AgenticFramework):
         self._data_dir = Path(data_dir) if data_dir is not None else None
         self.data_basepath = ""
 
+    @classmethod
+    def default_data_path(cls) -> Path:
+        return Path.home() / ".claude" / "projects"
+
     def init(self) -> None:
-        base = self._data_dir if self._data_dir is not None else Path.home() / ".claude" / "projects"
+        base = self._data_dir if self._data_dir is not None else self.default_data_path()
         self.data_basepath = str(base)
 
     def _session_paths(self) -> list[str]:

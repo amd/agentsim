@@ -60,8 +60,12 @@ export function createSidebar(): HTMLElement {
 
   // Guard against out-of-order responses: only the latest request paints.
   let requestSeq = 0;
+  // Remember the active filters so external triggers (e.g. a data source being
+  // added/removed) can re-fetch the list without losing the user's selection.
+  let currentFilters = emptyFilters();
 
   const renderList = async (filters: Filters): Promise<void> => {
+    currentFilters = filters;
     const seq = ++requestSeq;
     clear(list);
     list.append(el("div", { class: "conversation-empty", text: "Loading…" }));
@@ -121,6 +125,10 @@ export function createSidebar(): HTMLElement {
       el("div", { class: "sidebar-actions" }, [filterBtn, reloadBtn, searchBtn, popover]),
     ]),
   ]);
+
+  // When the active data sources change, re-fetch with the current filters so
+  // the list never shows sessions from a removed source (or misses a new one).
+  window.addEventListener("frameworks:changed", () => void renderList(currentFilters));
 
   void renderList(emptyFilters());
 

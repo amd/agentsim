@@ -8,6 +8,7 @@ else in the server changes.
 """
 
 from abc import ABC, abstractmethod
+from pathlib import Path
 
 from app.models import SessionMetadata, SessionTrace
 
@@ -16,6 +17,20 @@ class AgenticFramework(ABC):
     name: str            # human-readable name, e.g. "Claude Code"
     alias: str           # short id used on the API / CLI, e.g. "claudecode"
     data_basepath: str   # root directory the framework stores its sessions under
+
+    @classmethod
+    @abstractmethod
+    def default_data_path(cls) -> Path:
+        """Where this framework stores its sessions when no path is overridden."""
+
+    @classmethod
+    def detect(cls) -> str | None:
+        """Return the default data path if it exists on this machine, else None.
+
+        Used to auto-discover installed frameworks the user hasn't added yet.
+        """
+        path = cls.default_data_path()
+        return str(path) if path.exists() else None
 
     @abstractmethod
     def init(self) -> None:

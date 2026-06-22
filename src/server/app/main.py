@@ -21,21 +21,18 @@ from app.server import create_app
 DEFAULT_PORT = 4317
 
 
-def build_registry(data_dir: str | None = None) -> FrameworkRegistry:
+def build_registry(config_dir: str | None = None) -> FrameworkRegistry:
     """Build the framework registry and restore its active set.
 
-    ``data_dir``, when given, is a shared root used only to seed the active set on
-    first run -- each framework reads ``<data_dir>/<alias>``, and the registry's
-    state file lives alongside it. When omitted, each framework falls back to its
-    own default location (e.g. ClaudeCode reads ``~/.claude/projects``) and state
-    is stored under ``~/.agent-sim``.
+    The configured data sources are persisted to ``config.json`` under
+    ``config_dir`` (default: ``~/.cache/.agent-sim``). The active set starts
+    empty on first run; data sources are added by the user (manually or from
+    auto-detection).
     """
-    if data_dir:
-        state_path = Path(data_dir) / "frameworks.json"
-    else:
-        state_path = Path.home() / ".agent-sim" / "frameworks.json"
+    base = Path(config_dir) if config_dir else Path.home() / ".cache" / ".agent-sim"
+    state_path = base / "config.json"
 
-    registry = FrameworkRegistry(state_path, default_data_dir=data_dir)
+    registry = FrameworkRegistry(state_path)
     registry.load()
     return registry
 
@@ -43,12 +40,12 @@ def build_registry(data_dir: str | None = None) -> FrameworkRegistry:
 def main() -> None:
     parser = argparse.ArgumentParser(prog="server")
     parser.add_argument("--port", type=int, default=DEFAULT_PORT)
-    parser.add_argument("--data-dir", default=None,
-                        help="shared data root used to seed frameworks on first run "
-                             "(each reads <data-dir>/<alias>)")
+    parser.add_argument("--config-dir", default=None,
+                        help="directory holding config.json "
+                             "(default: ~/.cache/.agent-sim)")
     args = parser.parse_args()
 
-    registry = build_registry(args.data_dir)
+    registry = build_registry(args.config_dir)
     app = create_app(registry)
 
     print(f"[server] listening on http://localhost:{args.port}")

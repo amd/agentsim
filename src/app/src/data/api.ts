@@ -54,6 +54,14 @@ export interface AvailableFramework {
   name: string;
 }
 
+// A catalog framework whose default data location exists but that isn't active
+// yet — offered for one-click activation in the Manage Data Sources window.
+export interface DetectedFramework {
+  alias: string;
+  name: string;
+  path: string;
+}
+
 // Backend framework alias -> the UI Tag whose chip carries the accent color.
 const ALIAS_TO_TAG: Record<string, Tag> = {
   claudecode: "claude-code",
@@ -138,6 +146,12 @@ export async function fetchAvailableFrameworks(): Promise<AvailableFramework[]> 
   const res = await fetch(`${BASE}/frameworks/available`);
   if (!res.ok) throw new Error(`GET /frameworks/available failed: ${res.status}`);
   return (await res.json()) as AvailableFramework[];
+}
+
+export async function fetchDetectedFrameworks(): Promise<DetectedFramework[]> {
+  const res = await fetch(`${BASE}/frameworks/detected`);
+  if (!res.ok) throw new Error(`GET /frameworks/detected failed: ${res.status}`);
+  return (await res.json()) as DetectedFramework[];
 }
 
 export async function addFramework(alias: string, path?: string): Promise<FrameworkInfo> {
