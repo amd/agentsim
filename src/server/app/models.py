@@ -66,12 +66,21 @@ class SessionTrace(BaseModel):
     spans: list[Span]
 
 
-class FrameworkFacet(BaseModel):
-    """One framework option for the filter window, with its session count."""
+class FrameworkInfo(BaseModel):
+    """A framework (data source) the server knows about.
+
+    One shape serves every framework view: the active set, the catalog of
+    available types, auto-detected sources, and the filter facets. Fields that
+    don't apply to a given view are left at their defaults -- e.g. ``data_basepath``
+    is the resolved path for active/detected frameworks and ``""`` in the catalog;
+    ``session_count`` is populated where a count is meaningful and ``0`` otherwise.
+    """
 
     alias: str
     name: str
-    count: int
+    primary_color: str = ""
+    data_basepath: str = ""
+    session_count: int = 0
 
 
 class ProjectFacet(BaseModel):
@@ -86,37 +95,8 @@ class SessionFacets(BaseModel):
     """Distinct filter options across all sessions, built by the backend so the
     frontend's filter window mirrors what's actually available."""
 
-    frameworks: list[FrameworkFacet]
+    frameworks: list[FrameworkInfo]
     projects: list[ProjectFacet]
-
-
-class AvailableFramework(BaseModel):
-    """A framework type the server knows how to build (the catalog), whether or
-    not it is currently active."""
-
-    alias: str
-    name: str
-    primary_color: str = ""
-
-
-class FrameworkInfo(BaseModel):
-    """An active framework backend (a data source the server is serving)."""
-
-    alias: str
-    name: str
-    data_basepath: str = ""
-    session_count: int = 0
-    primary_color: str = ""
-
-
-class DetectedFramework(BaseModel):
-    """A catalog framework whose default data location exists on this machine but
-    that isn't active yet -- offered for one-click activation."""
-
-    alias: str
-    name: str
-    path: str
-    primary_color: str = ""
 
 
 class AddFrameworkRequest(BaseModel):

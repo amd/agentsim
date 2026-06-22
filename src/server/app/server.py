@@ -20,9 +20,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.backends.AgenticFramework import AgenticFramework
 from app.models import (
     AddFrameworkRequest,
-    AvailableFramework,
-    DetectedFramework,
-    FrameworkFacet,
     FrameworkInfo,
     ProjectFacet,
     SessionFacets,
@@ -94,25 +91,26 @@ def create_app(registry: FrameworkRegistry) -> FastAPI:
         ]
 
     @app.get("/frameworks/available")
-    def available_frameworks() -> list[AvailableFramework]:
+    def available_frameworks() -> list[FrameworkInfo]:
         """Every framework type the server can build, active or not."""
         return [
-            AvailableFramework(alias=cls.alias, name=cls.name, primary_color=cls.primary_color)
+            FrameworkInfo(alias=cls.alias, name=cls.name, primary_color=cls.primary_color)
             for cls in registry.available()
         ]
 
     @app.get("/frameworks/detected")
-    def detected_frameworks() -> list[DetectedFramework]:
+    def detected_frameworks() -> list[FrameworkInfo]:
         """Catalog frameworks whose default data location exists but that aren't
         active yet -- the basis for the Manage Data Sources "detected" list."""
-        found: list[DetectedFramework] = []
+        found: list[FrameworkInfo] = []
         for cls in registry.available():
             if cls.alias in registry.active:
                 continue
             path = cls.detect()
             if path:
-                found.append(DetectedFramework(
-                    alias=cls.alias, name=cls.name, path=path, primary_color=cls.primary_color,
+                found.append(FrameworkInfo(
+                    alias=cls.alias, name=cls.name, primary_color=cls.primary_color,
+                    data_basepath=path,
                 ))
         return found
 
@@ -183,10 +181,12 @@ def create_app(registry: FrameworkRegistry) -> FastAPI:
         for s in sessions:
             fw_counts[s.framework] = fw_counts.get(s.framework, 0) + 1
         fw_facets = [
-            FrameworkFacet(
+            FrameworkInfo(
                 alias=alias,
-                name=registry.active[alias].name if alias in registry.active else alias,
-                count=fw_counts.get(alias, 0),
+                name=registry.active[alias].name,
+                primary_color=registry.active[alias].primary_color,
+                data_basepath=registry.active[alias].data_basepath,
+                session_count=fw_counts.get(alias, 0),
             )
             for alias in registry.active
             if fw_counts.get(alias, 0) > 0

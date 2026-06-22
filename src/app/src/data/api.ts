@@ -23,10 +23,15 @@ interface WireSession {
   framework: string;
 }
 
-export interface FrameworkFacet {
+// One shape for every framework (data source) view: the active set, the catalog
+// of available types, auto-detected sources, and the filter facets. Fields that
+// don't apply to a given view come back at their defaults ("" / 0).
+export interface FrameworkInfo {
   alias: string;
   name: string;
-  count: number;
+  primary_color: string;
+  data_basepath: string;
+  session_count: number;
 }
 
 export interface ProjectFacet {
@@ -36,33 +41,8 @@ export interface ProjectFacet {
 }
 
 export interface Facets {
-  frameworks: FrameworkFacet[];
+  frameworks: FrameworkInfo[];
   projects: ProjectFacet[];
-}
-
-// An active framework backend (a data source the server is serving).
-export interface FrameworkInfo {
-  alias: string;
-  name: string;
-  data_basepath: string;
-  session_count: number;
-  primary_color: string;
-}
-
-// A framework type the server knows how to build, whether or not it's active.
-export interface AvailableFramework {
-  alias: string;
-  name: string;
-  primary_color: string;
-}
-
-// A catalog framework whose default data location exists but that isn't active
-// yet — offered for one-click activation in the Manage Data Sources window.
-export interface DetectedFramework {
-  alias: string;
-  name: string;
-  path: string;
-  primary_color: string;
 }
 
 // Per-framework display metadata (name + brand color), keyed by alias. Sourced
@@ -166,16 +146,16 @@ export async function fetchFrameworks(): Promise<FrameworkInfo[]> {
   return (await res.json()) as FrameworkInfo[];
 }
 
-export async function fetchAvailableFrameworks(): Promise<AvailableFramework[]> {
+export async function fetchAvailableFrameworks(): Promise<FrameworkInfo[]> {
   const res = await fetch(`${BASE}/frameworks/available`);
   if (!res.ok) throw new Error(`GET /frameworks/available failed: ${res.status}`);
-  return (await res.json()) as AvailableFramework[];
+  return (await res.json()) as FrameworkInfo[];
 }
 
-export async function fetchDetectedFrameworks(): Promise<DetectedFramework[]> {
+export async function fetchDetectedFrameworks(): Promise<FrameworkInfo[]> {
   const res = await fetch(`${BASE}/frameworks/detected`);
   if (!res.ok) throw new Error(`GET /frameworks/detected failed: ${res.status}`);
-  return (await res.json()) as DetectedFramework[];
+  return (await res.json()) as FrameworkInfo[];
 }
 
 export async function addFramework(alias: string, path?: string): Promise<FrameworkInfo> {

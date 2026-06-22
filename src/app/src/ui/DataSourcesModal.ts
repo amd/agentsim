@@ -5,8 +5,6 @@ import {
   fetchDetectedFrameworks,
   fetchFrameworks,
   removeFramework,
-  type AvailableFramework,
-  type DetectedFramework,
   type FrameworkInfo,
 } from "../data/api.js";
 
@@ -76,12 +74,12 @@ function frameworkRow(fw: FrameworkInfo, refresh: () => void): HTMLElement {
 
 // Render one auto-detected framework: its name + discovered path, with a
 // one-click Add that activates it at that default location.
-function detectedRow(fw: DetectedFramework, refresh: () => void): HTMLElement {
+function detectedRow(fw: FrameworkInfo, refresh: () => void): HTMLElement {
   const add = el("button", { class: "lm-btn lm-btn-accent", text: "Add", title: `Add ${fw.name}` });
   add.addEventListener("click", async () => {
     add.disabled = true;
     try {
-      await addFramework(fw.alias, fw.path);
+      await addFramework(fw.alias, fw.data_basepath);
       notifyChanged();
       refresh();
     } catch {
@@ -93,7 +91,7 @@ function detectedRow(fw: DetectedFramework, refresh: () => void): HTMLElement {
   const row = el("div", { class: "ds-row" }, [
     el("div", { class: "ds-row-text" }, [
       name,
-      el("div", { class: "ds-row-meta", text: fw.path }),
+      el("div", { class: "ds-row-meta", text: fw.data_basepath }),
     ]),
     add,
   ]);
@@ -103,7 +101,7 @@ function detectedRow(fw: DetectedFramework, refresh: () => void): HTMLElement {
 
 // Build the "add a data source" control: a picker of catalog frameworks not yet
 // active, an optional data-path override, and an Add button.
-function addControl(inactive: AvailableFramework[], refresh: () => void): HTMLElement {
+function addControl(inactive: FrameworkInfo[], refresh: () => void): HTMLElement {
   if (inactive.length === 0) {
     return el("div", { class: "ds-add-empty", text: "All available data sources are active." });
   }
