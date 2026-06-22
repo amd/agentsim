@@ -150,12 +150,14 @@ export function createConversationBlock(
   if (modelChip && conversation.frameworkColor) modelChip.style.color = conversation.frameworkColor;
 
   const tags = el("div", { class: "conversation-tags" }, [
-    ...(conversation.isLive ? [el("span", { class: "lm-tag live", text: "live" })] : []),
     ...(modelChip ? [modelChip] : []),
     frameworkChip,
   ]);
 
   const title = el("div", { class: "conversation-title-row" }, [
+    ...(conversation.isLive
+      ? [el("span", { class: "live-dot", title: "Live" })]
+      : []),
     el("span", { class: "conversation-title", text: conversation.title }),
     createKebab(conversation.projectPath),
   ]);

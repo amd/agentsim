@@ -320,7 +320,7 @@ html, body {
 
 .conversation-title-row {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 6px;
 }
 
@@ -366,6 +366,22 @@ html, body {
     font-weight: 500;
     line-height: 1.3;
     color: var(--text-primary);
+}
+
+.live-dot {
+    flex-shrink: 0;
+    width: 7px;
+    height: 7px;
+    margin-top: 5px;
+    border-radius: var(--radius-pill);
+    background: var(--error-hover);
+    box-shadow: 0 0 0 2px var(--error-background-color);
+    animation: live-dot-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes live-dot-pulse {
+    0%, 100% { opacity: 1; box-shadow: 0 0 0 0 var(--error-background-color); }
+    50%      { opacity: 0.6; box-shadow: 0 0 0 4px transparent; }
 }
 
 .conversation-subtitle {
