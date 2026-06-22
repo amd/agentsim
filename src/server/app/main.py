@@ -25,11 +25,11 @@ def build_registry(config_dir: str | None = None) -> FrameworkRegistry:
     """Build the framework registry and restore its active set.
 
     The configured data sources are persisted to ``config.json`` under
-    ``config_dir`` (default: ``~/.cache/.agent-sim``). The active set starts
+    ``config_dir`` (default: ``~/.cache/agent-sim``). The active set starts
     empty on first run; data sources are added by the user (manually or from
     auto-detection).
     """
-    base = Path(config_dir) if config_dir else Path.home() / ".cache" / ".agent-sim"
+    base = Path(config_dir) if config_dir else Path.home() / ".cache" / "agent-sim"
     state_path = base / "config.json"
 
     registry = FrameworkRegistry(state_path)
@@ -42,7 +42,7 @@ def main() -> None:
     parser.add_argument("--port", type=int, default=DEFAULT_PORT)
     parser.add_argument("--config-dir", default=None,
                         help="directory holding config.json "
-                             "(default: ~/.cache/.agent-sim)")
+                             "(default: ~/.cache/agent-sim)")
     args = parser.parse_args()
 
     registry = build_registry(args.config_dir)
