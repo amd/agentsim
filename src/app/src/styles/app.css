@@ -293,7 +293,9 @@ html, body {
     display: flex;
     flex-direction: column;
     gap: 8px;
-    padding: 6px 8px 8px;
+    /* No top padding: a sticky header pins at the padding edge, so any top band
+       would let scrolled content peek in above the section label. */
+    padding: 0 8px 8px;
 }
 
 .conversation-empty {
@@ -316,8 +318,9 @@ html, body {
     text-transform: uppercase;
     letter-spacing: 0.07em;
     color: var(--text-secondary);
-    /* Opaque base under the tint so stacked sticky headers don't show through. */
-    background: linear-gradient(var(--bg-alpha-03), var(--bg-alpha-03)), var(--model-manager-bg);
+    /* Opaque gray matching the dashboard section headers (.canvas-section-header);
+       also keeps stacked sticky headers from showing through each other. */
+    background: var(--bg-tertiary);
     border-radius: var(--radius-md);
 }
 /* Extra breathing room above every section except the first. */
