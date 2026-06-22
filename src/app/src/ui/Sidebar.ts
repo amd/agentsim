@@ -60,12 +60,8 @@ export function createSidebar(): HTMLElement {
 
   // Guard against out-of-order responses: only the latest request paints.
   let requestSeq = 0;
-  // Remember the active filters so external triggers (e.g. a data source being
-  // added/removed) can re-fetch the list without losing the user's selection.
-  let currentFilters = emptyFilters();
 
   const renderList = async (filters: Filters): Promise<void> => {
-    currentFilters = filters;
     const seq = ++requestSeq;
     clear(list);
     list.append(el("div", { class: "conversation-empty", text: "Loading…" }));
@@ -86,15 +82,21 @@ export function createSidebar(): HTMLElement {
 
   // Filter popover: the 4-section filter panel, revealed from the filter icon.
   // Anchored to a position:relative wrapper; click outside closes it. Its options
-  // come from server facets, fetched once on mount.
+  // come from server facets, so it must be rebuilt whenever the active data
+  // sources change (otherwise its framework/model/project lists go stale or empty).
   const filterBtn = iconButton(FILTER_SVG, "Filter");
   const popover = el("div", { class: "filter-popover" });
   popover.style.display = "none";
-  void fetchFacets()
-    .then((facets) => popover.append(createFilterPanel(facets, (f) => void renderList(f))))
-    .catch(() =>
-      popover.append(el("div", { class: "conversation-empty", text: "Cannot reach server." })),
-    );
+
+  const buildFilterPanel = (): void => {
+    clear(popover);
+    void fetchFacets()
+      .then((facets) => popover.append(createFilterPanel(facets, (f) => void renderList(f))))
+      .catch(() =>
+        popover.append(el("div", { class: "conversation-empty", text: "Cannot reach server." })),
+      );
+  };
+  buildFilterPanel();
 
   const closePopover = () => {
     popover.style.display = "none";
@@ -126,9 +128,14 @@ export function createSidebar(): HTMLElement {
     ]),
   ]);
 
-  // When the active data sources change, re-fetch with the current filters so
-  // the list never shows sessions from a removed source (or misses a new one).
-  window.addEventListener("frameworks:changed", () => void renderList(currentFilters));
+  // When the active data sources change, rebuild the filter panel from fresh
+  // facets (a removed source's options must disappear, a new one's must appear)
+  // and re-render the list. The rebuilt panel starts unfiltered, so reset to
+  // empty filters to keep the panel and the list in sync.
+  window.addEventListener("frameworks:changed", () => {
+    buildFilterPanel();
+    void renderList(emptyFilters());
+  });
 
   void renderList(emptyFilters());
 
