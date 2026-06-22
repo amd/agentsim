@@ -253,24 +253,18 @@ html, body {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 7px 12px 6px;
-    font-size: 0.66rem;
+    padding: 7px 12px;
+    font-size: 0.67rem;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--text-primary);
-    background: var(--model-manager-bg);
-}
-/* Trailing rule that fills the row, so each section reads as a divider. */
-.conversation-section-header::after {
-    content: "";
-    flex: 1;
-    height: 1px;
-    background: var(--border-tertiary);
+    letter-spacing: 0.07em;
+    color: var(--text-secondary);
+    background: var(--bg-alpha-03);
+    border-radius: var(--radius-md);
 }
 /* Extra breathing room above every section except the first. */
 .conversation-section-header:not(:first-child) {
-    margin-top: 12px;
+    margin-top: 14px;
 }
 
 /* --- Conversation block (list row) --------------------------------------- */
