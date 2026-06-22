@@ -117,6 +117,28 @@ def create_app(registry: FrameworkRegistry) -> FastAPI:
             ))
         return found
 
+    @app.post("/frameworks/validate")
+    def validate_framework(body: AddFrameworkRequest) -> dict[str, object]:
+        """Check whether ``path`` holds readable sessions for ``alias`` before the
+        user commits to adding it. Returns ``valid`` plus the session count (or a
+        human-readable ``error`` when it isn't a usable data source)."""
+        cls = AVAILABLE.get(body.alias)
+        if cls is None:
+            return {"valid": False, "session_count": 0, "error": f"Unknown framework: {body.alias}"}
+        try:
+            probe = cls(body.path)
+            probe.init()
+            count = len(probe.get_sessions_list())
+        except Exception as error:  # any read/parse failure means the path is unusable
+            return {"valid": False, "session_count": 0, "error": str(error)}
+        if count == 0:
+            return {
+                "valid": False,
+                "session_count": 0,
+                "error": f"No {cls.name} sessions found at this path.",
+            }
+        return {"valid": True, "session_count": count, "error": ""}
+
     @app.post("/frameworks", status_code=201)
     def add_framework(body: AddFrameworkRequest) -> FrameworkInfo:
         if body.alias not in AVAILABLE:

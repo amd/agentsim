@@ -1,3 +1,4 @@
+import { invoke } from "@tauri-apps/api/core";
 import { el, clear } from "./dom.js";
 import {
   addFramework,
@@ -5,6 +6,7 @@ import {
   fetchDetectedFrameworks,
   fetchFrameworks,
   removeFramework,
+  validateFramework,
   type FrameworkInfo,
 } from "../data/api.js";
 
@@ -12,6 +14,22 @@ import {
 // sidebar's session list) re-fetch instead of showing stale data.
 function notifyChanged(): void {
   window.dispatchEvent(new CustomEvent("frameworks:changed"));
+}
+
+// Native folder picker via the Tauri dialog plugin. Returns the chosen path, or
+// null when cancelled or when running in the browser (no host) — callers then
+// fall back to the typed path field.
+async function pickFolder(): Promise<string | null> {
+  if (!("__TAURI_INTERNALS__" in window)) return null;
+  try {
+    const result = await invoke<string | string[] | null>("plugin:dialog|open", {
+      options: { directory: true, multiple: false, title: "Select data folder" },
+    });
+    return typeof result === "string" ? result : null;
+  } catch (err) {
+    console.error("[data-sources] folder pick failed", err);
+    return null;
+  }
 }
 
 // "#RRGGBB" -> "rgba(r, g, b, a)", for a subtle background wash in the brand color.
@@ -103,40 +121,67 @@ function detectedRow(fw: FrameworkInfo, refresh: () => void): HTMLElement {
   return row;
 }
 
-// Build the "add a data source" control: a picker of catalog frameworks not yet
-// active, an optional data-path override, and an Add button.
-function addControl(inactive: FrameworkInfo[], refresh: () => void): HTMLElement {
+// Build the manual "add a data source" control: a picker of catalog frameworks
+// not yet active, a data-path field with a native folder picker, and an Add
+// button that verifies the path holds real sessions before activating it.
+function manualControl(inactive: FrameworkInfo[], refresh: () => void): HTMLElement {
   if (inactive.length === 0) {
     return el("div", { class: "ds-add-empty", text: "All available data sources are active." });
   }
 
   const select = el("select", { class: "lm-select" },
     inactive.map((f) => el("option", { value: f.alias, text: f.name })),
-  );
+  ) as HTMLSelectElement;
   const path = el("input", {
     class: "lm-input",
     type: "text",
-    placeholder: "Data path (optional — uses default)",
-  });
+    placeholder: "Data path (required)",
+  }) as HTMLInputElement;
   const add = el("button", { class: "lm-btn lm-btn-accent", text: "Add" });
-  const error = el("div", { class: "ds-add-error" });
+  const message = el("div", { class: "ds-add-msg" });
+
+  const pathRow: HTMLElement[] = [path];
+  if ("__TAURI_INTERNALS__" in window) {
+    const browse = el("button", { class: "lm-btn", text: "Browse…" });
+    browse.addEventListener("click", async () => {
+      const picked = await pickFolder();
+      if (picked) path.value = picked;
+    });
+    pathRow.push(browse);
+  }
 
   add.addEventListener("click", async () => {
+    const p = path.value.trim();
+    if (!p) {
+      message.classList.add("error");
+      message.textContent = "Data path is required.";
+      return;
+    }
     add.disabled = true;
-    error.textContent = "";
+    message.classList.remove("error");
+    message.textContent = "Verifying…";
     try {
-      await addFramework(select.value, path.value.trim());
+      const result = await validateFramework(select.value, p);
+      if (!result.valid) {
+        message.classList.add("error");
+        message.textContent = result.error || "Not a valid data source.";
+        add.disabled = false;
+        return;
+      }
+      await addFramework(select.value, p);
       notifyChanged();
       refresh();
     } catch (e) {
-      error.textContent = e instanceof Error ? e.message : "Failed to add data source.";
+      message.classList.add("error");
+      message.textContent = e instanceof Error ? e.message : "Failed to add data source.";
       add.disabled = false;
     }
   });
 
   return el("div", { class: "ds-add" }, [
-    el("div", { class: "ds-add-row" }, [select, path, add]),
-    error,
+    el("div", { class: "ds-add-row" }, [select, ...pathRow]),
+    el("div", { class: "ds-add-row" }, [add]),
+    message,
   ]);
 }
 
@@ -158,24 +203,31 @@ export function openDataSourcesModal(): void {
       const inactive = available.filter((f) => !activeAliases.has(f.alias));
 
       clear(body);
-      body.append(el("div", { class: "ds-section-title", text: "Active" }));
-      if (active.length === 0) {
-        body.append(el("div", { class: "ds-status", text: "No active data sources." }));
-      } else {
-        body.append(
-          el("div", { class: "ds-list" }, active.map((f) => frameworkRow(f, () => void render()))),
-        );
-      }
 
-      if (detected.length > 0) {
-        body.append(el("div", { class: "ds-section-title", text: "Detected" }));
-        body.append(
-          el("div", { class: "ds-list" }, detected.map((f) => detectedRow(f, () => void render()))),
-        );
-      }
+      // Active
+      const activeBody = active.length === 0
+        ? el("div", { class: "ds-status", text: "No active data sources." })
+        : el("div", { class: "ds-list" }, active.map((f) => frameworkRow(f, () => void render())));
+      body.append(el("div", { class: "ds-section" }, [
+        el("div", { class: "ds-section-title", text: "Active" }),
+        activeBody,
+      ]));
 
-      body.append(el("div", { class: "ds-section-title", text: "Add data source" }));
-      body.append(addControl(inactive, () => void render()));
+      // Add new → Detected + Manual
+      const detectedBody = detected.length === 0
+        ? el("div", { class: "ds-add-empty", text: "No data sources detected." })
+        : el("div", { class: "ds-list" }, detected.map((f) => detectedRow(f, () => void render())));
+      body.append(el("div", { class: "ds-section" }, [
+        el("div", { class: "ds-section-title", text: "Add New" }),
+        el("div", { class: "ds-group" }, [
+          el("div", { class: "ds-subsection-title", text: "Detected" }),
+          detectedBody,
+        ]),
+        el("div", { class: "ds-group" }, [
+          el("div", { class: "ds-subsection-title", text: "Manual" }),
+          manualControl(inactive, () => void render()),
+        ]),
+      ]));
     } catch {
       clear(body);
       body.append(el("div", { class: "ds-status", text: "Cannot reach server." }));

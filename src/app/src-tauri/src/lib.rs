@@ -20,6 +20,7 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
         .setup(move |app| {
             // Stash the server handle in app state (good practice; lets future
             // commands reach it). Not strictly required for this sample.

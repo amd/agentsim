@@ -158,6 +158,23 @@ export async function fetchDetectedFrameworks(): Promise<FrameworkInfo[]> {
   return (await res.json()) as FrameworkInfo[];
 }
 
+export interface FrameworkValidation {
+  valid: boolean;
+  session_count: number;
+  error: string;
+}
+
+// Check whether `path` holds readable sessions for `alias` before adding it.
+export async function validateFramework(alias: string, path?: string): Promise<FrameworkValidation> {
+  const res = await fetch(`${BASE}/frameworks/validate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ alias, path: path || null }),
+  });
+  if (!res.ok) throw new Error(`POST /frameworks/validate failed: ${res.status}`);
+  return (await res.json()) as FrameworkValidation;
+}
+
 export async function addFramework(alias: string, path?: string): Promise<FrameworkInfo> {
   const res = await fetch(`${BASE}/frameworks`, {
     method: "POST",

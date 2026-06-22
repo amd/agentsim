@@ -452,6 +452,16 @@ html, body {
     overflow-y: auto;
 }
 
+.ds-section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px;
+    background: var(--bg-alpha-02);
+    border: 1px solid var(--border-secondary);
+    border-radius: var(--radius-md);
+}
+
 .ds-section-title {
     font-size: 0.62rem;
     font-weight: 600;
@@ -459,7 +469,24 @@ html, body {
     letter-spacing: 0.05em;
     color: var(--text-secondary);
 }
-.ds-section-title:not(:first-child) { margin-top: 6px; }
+
+.ds-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px;
+    background: var(--bg-alpha-02);
+    border: 1px solid var(--border-secondary);
+    border-radius: var(--radius-md);
+}
+
+.ds-subsection-title {
+    font-size: 0.6rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-quaternary);
+}
 
 .ds-status {
     padding: 12px;
@@ -519,11 +546,12 @@ html, body {
     color: var(--text-quaternary);
 }
 
-.ds-add-error {
+.ds-add-msg {
     font-size: 0.68rem;
-    color: var(--error-color);
+    color: var(--text-secondary);
 }
-.ds-add-error:empty { display: none; }
+.ds-add-msg:empty { display: none; }
+.ds-add-msg.error { color: var(--error-color); }
 
 /* --- Main canvas (3 stacked sections, 70/20/10) -------------------------- */
 .canvas {
