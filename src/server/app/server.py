@@ -21,6 +21,7 @@ from app.backends.AgenticFramework import AgenticFramework
 from app.models import (
     AddFrameworkRequest,
     FrameworkInfo,
+    ModelFacet,
     ProjectFacet,
     SessionFacets,
     SessionMetadata,
@@ -182,11 +183,13 @@ def create_app(registry: FrameworkRegistry) -> FastAPI:
         framework: str | None = Query(default=None, description="CSV of framework aliases"),
         live: bool | None = Query(default=None),
         project: str | None = Query(default=None, description="CSV of full project paths"),
+        model: str | None = Query(default=None, description="CSV of model names"),
         from_: str | None = Query(default=None, alias="from", description="ISO instant"),
         to: str | None = Query(default=None, description="ISO instant"),
     ) -> list[SessionMetadata]:
         wanted_fw = _csv(framework)
         wanted_proj = _csv(project)
+        wanted_model = _csv(model)
         ts_from = _parse_ts(from_ or "")
         ts_to = _parse_ts(to or "")
 
@@ -197,6 +200,8 @@ def create_app(registry: FrameworkRegistry) -> FastAPI:
             if live is not None and s.is_live != live:
                 continue
             if wanted_proj and s.project_path not in wanted_proj:
+                continue
+            if wanted_model and s.model not in wanted_model:
                 continue
             if ts_from or ts_to:
                 ts = _parse_ts(s.timestamp_modified)
@@ -236,7 +241,16 @@ def create_app(registry: FrameworkRegistry) -> FastAPI:
             for path, count in sorted(proj_counts.items(), key=lambda kv: kv[1], reverse=True)
         ]
 
-        return SessionFacets(frameworks=fw_facets, projects=proj_facets)
+        model_counts: dict[str, int] = {}
+        for s in sessions:
+            if s.model:
+                model_counts[s.model] = model_counts.get(s.model, 0) + 1
+        model_facets = [
+            ModelFacet(name=name, count=count)
+            for name, count in sorted(model_counts.items(), key=lambda kv: kv[1], reverse=True)
+        ]
+
+        return SessionFacets(frameworks=fw_facets, projects=proj_facets, models=model_facets)
 
     @app.get("/frameworks/{framework}/sessions")
     def sessions(framework: str) -> list[SessionMetadata]:

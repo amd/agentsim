@@ -8,11 +8,18 @@ export interface Filters {
   frameworks: Set<string>;
   live: boolean;
   projects: Set<string>; // full project paths
+  models: Set<string>;
   date: Section | "all";
 }
 
 export function emptyFilters(): Filters {
-  return { frameworks: new Set(), live: false, projects: new Set(), date: "all" };
+  return {
+    frameworks: new Set(),
+    live: false,
+    projects: new Set(),
+    models: new Set(),
+    date: "all",
+  };
 }
 
 function section(title: string, control: HTMLElement): HTMLElement {
@@ -121,6 +128,7 @@ export function createFilterPanel(
     filters.frameworks.size > 0 ||
     filters.live ||
     filters.projects.size > 0 ||
+    filters.models.size > 0 ||
     filters.date !== "all";
 
   const reset = el("button", { class: "filter-reset", text: "Reset filters" });
@@ -142,6 +150,12 @@ export function createFilterPanel(
   const projects = checkboxList(
     facets.projects.map((p) => ({ path: p.path, name: p.name })),
     filters.projects,
+    fire,
+  );
+
+  const models = multiPills(
+    facets.models.map((m) => ({ value: m.name, label: m.name })),
+    filters.models,
     fire,
   );
 
@@ -170,9 +184,11 @@ export function createFilterPanel(
     filters.frameworks.clear();
     filters.live = false;
     filters.projects.clear();
+    filters.models.clear();
     filters.date = "all";
     frameworks.sync();
     projects.sync();
+    models.sync();
     live.sync();
     date.sync();
     fire();
@@ -183,6 +199,7 @@ export function createFilterPanel(
   return el("div", { class: "filter-panel" }, [
     reset,
     section("Framework", frameworks.node),
+    section("Model", models.node),
     section("Project", projects.node),
     section("Live", live.node),
     section("Date / Time", date.node),

@@ -91,12 +91,20 @@ class ProjectFacet(BaseModel):
     count: int
 
 
+class ModelFacet(BaseModel):
+    """One model option for the filter window, with its session count."""
+
+    name: str
+    count: int
+
+
 class SessionFacets(BaseModel):
     """Distinct filter options across all sessions, built by the backend so the
     frontend's filter window mirrors what's actually available."""
 
     frameworks: list[FrameworkInfo]
     projects: list[ProjectFacet]
+    models: list[ModelFacet]
 
 
 class AddFrameworkRequest(BaseModel):

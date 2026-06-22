@@ -40,9 +40,15 @@ export interface ProjectFacet {
   count: number;
 }
 
+export interface ModelFacet {
+  name: string;
+  count: number;
+}
+
 export interface Facets {
   frameworks: FrameworkInfo[];
   projects: ProjectFacet[];
+  models: ModelFacet[];
 }
 
 // Per-framework display metadata (name + brand color), keyed by alias. Sourced
@@ -113,6 +119,7 @@ function queryFor(filters: Filters): string {
   if (filters.frameworks.size > 0) params.set("framework", [...filters.frameworks].join(","));
   if (filters.live) params.set("live", "true");
   if (filters.projects.size > 0) params.set("project", [...filters.projects].join(","));
+  if (filters.models.size > 0) params.set("model", [...filters.models].join(","));
   const { from, to } = dateRange(filters.date);
   if (from) params.set("from", from);
   if (to) params.set("to", to);
