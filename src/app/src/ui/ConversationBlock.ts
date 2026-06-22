@@ -7,6 +7,11 @@ const dateFmt = new Intl.DateTimeFormat(undefined, {
   day: "numeric",
 });
 
+const timeFmt = new Intl.DateTimeFormat(undefined, {
+  hour: "numeric",
+  minute: "2-digit",
+});
+
 // Three-dot "more options" icon (filled dots so they read at small sizes).
 const KEBAB_SVG =
   '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2.4"></circle><circle cx="12" cy="12" r="2.4"></circle><circle cx="19" cy="12" r="2.4"></circle></svg>';
@@ -124,7 +129,12 @@ function createKebab(projectPath: string): HTMLElement {
   return el("div", { class: "conversation-kebab-wrap" }, [btn, menu]);
 }
 
-export function createConversationBlock(conversation: Conversation): HTMLElement {
+// `showTime` renders the wall-clock time instead of the date — used for the
+// Today/Yesterday sections where a month/day label is redundant.
+export function createConversationBlock(
+  conversation: Conversation,
+  showTime = false,
+): HTMLElement {
   const isLive = conversation.tags.includes("live");
   const frameworkTags = conversation.tags.filter((t) => t !== "live");
 
@@ -150,7 +160,7 @@ export function createConversationBlock(conversation: Conversation): HTMLElement
     el("div", { class: "conversation-meta" }, [
       el("span", {
         class: "conversation-date",
-        text: dateFmt.format(new Date(conversation.date)),
+        text: (showTime ? timeFmt : dateFmt).format(new Date(conversation.date)),
       }),
       tags,
     ]),

@@ -72,7 +72,8 @@ export function createSidebar(conversations: Conversation[]): HTMLElement {
       const items = groups.get(section);
       if (!items) continue;
       list.append(el("div", { class: "conversation-section-header", text: section }));
-      for (const c of items) list.append(createConversationBlock(c));
+      const showTime = section === "Today" || section === "Yesterday";
+      for (const c of items) list.append(createConversationBlock(c, showTime));
     }
   };
 
