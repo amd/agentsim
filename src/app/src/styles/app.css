@@ -411,7 +411,7 @@ html, body {
 }
 
 .ds-modal {
-    width: 520px;
+    width: 680px;
     max-width: calc(100vw - 32px);
     max-height: calc(100vh - 64px);
     display: flex;

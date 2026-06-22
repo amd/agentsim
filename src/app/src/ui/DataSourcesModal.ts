@@ -179,8 +179,7 @@ function manualControl(inactive: FrameworkInfo[], refresh: () => void): HTMLElem
   });
 
   return el("div", { class: "ds-add" }, [
-    el("div", { class: "ds-add-row" }, [select, ...pathRow]),
-    el("div", { class: "ds-add-row" }, [add]),
+    el("div", { class: "ds-add-row" }, [select, ...pathRow, add]),
     message,
   ]);
 }
