@@ -4,6 +4,7 @@
 export interface MenuOption {
   label: string;
   shortcut?: string;
+  wip?: boolean; // grayed out + "coming soon" tooltip; clicks ignored
   onSelect: () => void;
 }
 
@@ -11,6 +12,7 @@ export interface MenuOption {
 export interface MenuCheckbox {
   label: string;
   shortcut?: string;
+  wip?: boolean; // grayed out + "coming soon" tooltip; clicks ignored
   checked: boolean;
   onToggle: (next: boolean) => void;
 }
@@ -30,6 +32,13 @@ export interface Menu {
 }
 
 const placeholder = (name: string) => () => console.log(`[menu] ${name}`);
+
+// Mark an interactive item as work-in-progress: the menu bar renders it grayed
+// out with a hover tooltip and ignores clicks.
+function wip<T extends MenuOption | MenuCheckbox>(item: T): T {
+  item.wip = true;
+  return item;
+}
 
 // Checkbox factory: holds its own checked state and logs on toggle (placeholder
 // until wired to real view state).
@@ -72,11 +81,11 @@ export const menus: Menu[] = [
   {
     label: "Tools",
     options: [
-      { label: "Compare Sessions", onSelect: placeholder("Tools > Compare Sessions") },
+      wip({ label: "Compare Sessions", onSelect: placeholder("Tools > Compare Sessions") }),
       "divider",
       { header: "A/B Test" },
-      { label: "Skills", onSelect: placeholder("Tools > A/B Test > Skills") },
-      { label: "Prompts", onSelect: placeholder("Tools > A/B Test > Prompts") },
+      wip({ label: "Skills", onSelect: placeholder("Tools > A/B Test > Skills") }),
+      wip({ label: "Prompts", onSelect: placeholder("Tools > A/B Test > Prompts") }),
     ],
   },
   {
@@ -92,15 +101,15 @@ export const menus: Menu[] = [
       { label: "Fit", onSelect: placeholder("View > Fit") },
       { label: "Expand All", onSelect: placeholder("View > Expand All") },
       { label: "Collapse All", onSelect: placeholder("View > Collapse All") },
-      checkbox("Show Token Usage", true),
+      wip(checkbox("Show Token Usage", true)),
     ],
   },
   {
     label: "Help",
     options: [
-      { label: "Documentation", onSelect: placeholder("Help > Documentation") },
-      { label: "Keyboard Shortcuts", onSelect: placeholder("Help > Keyboard Shortcuts") },
-      { label: "About", onSelect: placeholder("Help > About") },
+      wip({ label: "Documentation", onSelect: placeholder("Help > Documentation") }),
+      wip({ label: "Keyboard Shortcuts", onSelect: placeholder("Help > Keyboard Shortcuts") }),
+      wip({ label: "About", onSelect: placeholder("Help > About") }),
     ],
   },
 ];

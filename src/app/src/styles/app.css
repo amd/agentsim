@@ -142,6 +142,21 @@ html, body {
 }
 .wip-tip:hover::after { opacity: 1; }
 
+/* WIP (work-in-progress) menu items: grayed out, no hover highlight. */
+.lm-menu .item.disabled {
+    color: var(--text-quaternary);
+    cursor: default;
+}
+.lm-menu .item.disabled:hover { background: transparent; }
+/* Inside a menu the tooltip sits to the right of the row (not below) so it
+   doesn't cover the next item. */
+.lm-menu .item.wip-tip::after {
+    top: 50%;
+    right: auto;
+    left: calc(100% + 8px);
+    transform: translateY(-50%);
+}
+
 /* Filter "miniature" — floating panel anchored to the filter icon. */
 .filter-popover {
     position: absolute;

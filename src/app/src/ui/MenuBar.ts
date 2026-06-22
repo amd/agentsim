@@ -14,6 +14,14 @@ export function createMenuBar(menus: Menu[]): HTMLElement {
     openWrapper = null;
   };
 
+  // Gray out a work-in-progress item: disabled styling, a hover tooltip, and
+  // clicks swallowed so the action never fires (and the menu stays open).
+  const markWip = (item: HTMLElement): void => {
+    item.classList.add("disabled", "wip-tip");
+    item.dataset.wip = "Work in progress — coming soon";
+    item.addEventListener("click", (e) => e.stopPropagation());
+  };
+
   // Render one dropdown item.
   const renderItem = (option: MenuItem): HTMLElement => {
     if (option === "divider") return el("div", { class: "sep" });
@@ -27,10 +35,12 @@ export function createMenuBar(menus: Menu[]): HTMLElement {
         el("span", { text: `${option.checked ? "✓ " : ""}${option.label}` }),
         option.shortcut ? el("span", { class: "shortcut", text: option.shortcut }) : null,
       ]);
-      item.addEventListener("click", () => {
-        option.onToggle(!option.checked);
-        close();
-      });
+      if (option.wip) markWip(item);
+      else
+        item.addEventListener("click", () => {
+          option.onToggle(!option.checked);
+          close();
+        });
       return item;
     }
 
@@ -39,10 +49,12 @@ export function createMenuBar(menus: Menu[]): HTMLElement {
       el("span", { text: option.label }),
       option.shortcut ? el("span", { class: "shortcut", text: option.shortcut }) : null,
     ]);
-    item.addEventListener("click", () => {
-      option.onSelect();
-      close();
-    });
+    if (option.wip) markWip(item);
+    else
+      item.addEventListener("click", () => {
+        option.onSelect();
+        close();
+      });
     return item;
   };
 
