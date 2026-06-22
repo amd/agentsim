@@ -398,6 +398,133 @@ html, body {
     gap: 4px;
 }
 
+/* --- Manage Data Sources modal ------------------------------------------- */
+.ds-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-alpha-5);
+    animation: menubar-slide-down 0.12s ease;
+}
+
+.ds-modal {
+    width: 520px;
+    max-width: calc(100vw - 32px);
+    max-height: calc(100vh - 64px);
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-primary);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+    overflow: hidden;
+}
+
+.ds-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px;
+    background: var(--bg-tertiary);
+    border-bottom: 1px solid var(--border-tertiary);
+    flex-shrink: 0;
+}
+
+.ds-title {
+    margin: 0;
+    font-size: 0.82rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-secondary);
+}
+
+.ds-close { width: 24px; height: 24px; }
+
+.ds-body {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 16px 18px 18px;
+    overflow-y: auto;
+}
+
+.ds-section-title {
+    font-size: 0.62rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-secondary);
+}
+.ds-section-title:not(:first-child) { margin-top: 6px; }
+
+.ds-status {
+    padding: 12px;
+    font-size: 0.72rem;
+    color: var(--text-quaternary);
+    text-align: center;
+}
+
+.ds-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.ds-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    background: var(--bg-alpha-03);
+    border: 1px solid var(--border-alpha-08);
+    border-radius: var(--radius-md);
+}
+
+.ds-row-text { flex: 1; min-width: 0; }
+
+.ds-row-name {
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.ds-row-meta {
+    margin-top: 3px;
+    font-size: 0.66rem;
+    color: var(--text-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ds-add {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.ds-add-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.ds-add-row .lm-input { flex: 1; min-width: 0; }
+
+.ds-add-empty {
+    font-size: 0.7rem;
+    color: var(--text-quaternary);
+}
+
+.ds-add-error {
+    font-size: 0.68rem;
+    color: var(--error-color);
+}
+.ds-add-error:empty { display: none; }
+
 /* --- Main canvas (3 stacked sections, 70/20/10) -------------------------- */
 .canvas {
     flex: 1;

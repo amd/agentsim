@@ -73,9 +73,10 @@ export const menus: Menu[] = [
   {
     label: "File",
     options: [
-      { header: "Data Source" },
-      { label: "Add", onSelect: placeholder("File > Data Source > Add") },
-      { label: "Remove", onSelect: placeholder("File > Data Source > Remove") },
+      {
+        label: "Manage Data Sources",
+        onSelect: () => window.dispatchEvent(new CustomEvent("file:manage-data-sources")),
+      },
     ],
   },
   {

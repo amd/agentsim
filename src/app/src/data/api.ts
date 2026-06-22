@@ -40,6 +40,20 @@ export interface Facets {
   projects: ProjectFacet[];
 }
 
+// An active framework backend (a data source the server is serving).
+export interface FrameworkInfo {
+  alias: string;
+  name: string;
+  data_basepath: string;
+  session_count: number;
+}
+
+// A framework type the server knows how to build, whether or not it's active.
+export interface AvailableFramework {
+  alias: string;
+  name: string;
+}
+
 // Backend framework alias -> the UI Tag whose chip carries the accent color.
 const ALIAS_TO_TAG: Record<string, Tag> = {
   claudecode: "claude-code",
@@ -108,4 +122,43 @@ export async function fetchFacets(): Promise<Facets> {
   const res = await fetch(`${BASE}/sessions/facets`);
   if (!res.ok) throw new Error(`GET /sessions/facets failed: ${res.status}`);
   return (await res.json()) as Facets;
+}
+
+// --- Framework (data source) management ------------------------------------
+// The backend owns the active set; these mirror its CRUD endpoints so the
+// Manage Data Sources UI stays a thin view over the server.
+
+export async function fetchFrameworks(): Promise<FrameworkInfo[]> {
+  const res = await fetch(`${BASE}/frameworks`);
+  if (!res.ok) throw new Error(`GET /frameworks failed: ${res.status}`);
+  return (await res.json()) as FrameworkInfo[];
+}
+
+export async function fetchAvailableFrameworks(): Promise<AvailableFramework[]> {
+  const res = await fetch(`${BASE}/frameworks/available`);
+  if (!res.ok) throw new Error(`GET /frameworks/available failed: ${res.status}`);
+  return (await res.json()) as AvailableFramework[];
+}
+
+export async function addFramework(alias: string, path?: string): Promise<FrameworkInfo> {
+  const res = await fetch(`${BASE}/frameworks`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ alias, path: path || null }),
+  });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => null);
+    throw new Error(detail?.detail || `POST /frameworks failed: ${res.status}`);
+  }
+  return (await res.json()) as FrameworkInfo;
+}
+
+export async function removeFramework(alias: string): Promise<void> {
+  const res = await fetch(`${BASE}/frameworks/${encodeURIComponent(alias)}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => null);
+    throw new Error(detail?.detail || `DELETE /frameworks/${alias} failed: ${res.status}`);
+  }
 }

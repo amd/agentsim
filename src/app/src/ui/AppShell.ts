@@ -2,6 +2,7 @@ import { el } from "./dom.js";
 import { createMenuBar } from "./MenuBar.js";
 import { createSidebar } from "./Sidebar.js";
 import { createCanvas } from "./Canvas.js";
+import { openDataSourcesModal } from "./DataSourcesModal.js";
 import { menus } from "../data/menus.js";
 
 // Top-level layout: controls bar on top, then sidebar + canvas.
@@ -29,6 +30,8 @@ export function createAppShell(): HTMLElement {
   window.addEventListener("view:sessions", onToggle(sidebar));
   window.addEventListener("view:block-info", onToggle(blockInfo));
   window.addEventListener("view:timeline-miniature", onToggle(miniature));
+
+  window.addEventListener("file:manage-data-sources", () => openDataSourcesModal());
 
   return shell;
 }
