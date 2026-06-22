@@ -23,12 +23,21 @@ export interface Conversation {
   effort: Effort;
 }
 
+// Build an ISO timestamp `days` before now (relative so the mocks always land in
+// the same date sections regardless of when the app is opened).
+function daysAgo(days: number, hour = 12, minute = 0): string {
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  d.setHours(hour, minute, 0, 0);
+  return d.toISOString();
+}
+
 export const conversations: Conversation[] = [
   {
     id: "c1",
     title: "Refactor inference loop",
     projectPath: "C:\\Users\\mdokukin\\dev\\codebase\\inference-engine",
-    date: "2026-06-16T14:22:00Z",
+    date: daysAgo(0, 14, 22),
     tags: ["claude-code", "live"],
     model: "Claude Opus 4.7",
     effort: "high",
@@ -37,7 +46,7 @@ export const conversations: Conversation[] = [
     id: "c2",
     title: "Vision model comparison",
     projectPath: "C:\\Users\\mdokukin\\projects\\research\\vision-bench",
-    date: "2026-06-15T09:05:00Z",
+    date: daysAgo(1, 9, 5),
     tags: ["cursor"],
     model: "Claude Sonnet 4.6",
     effort: "medium",
@@ -46,7 +55,7 @@ export const conversations: Conversation[] = [
     id: "c3",
     title: "RAG embeddings pipeline",
     projectPath: "C:\\dev\\codebase\\rag-pipeline",
-    date: "2026-06-14T18:40:00Z",
+    date: daysAgo(3, 18, 40),
     tags: ["codex"],
     model: "GPT-5",
     effort: "medium",
@@ -55,7 +64,7 @@ export const conversations: Conversation[] = [
     id: "c4",
     title: "Tool-calling agent draft",
     projectPath: "C:\\Users\\mdokukin\\work\\agents\\tool-agent",
-    date: "2026-06-13T11:15:00Z",
+    date: daysAgo(5, 11, 15),
     tags: ["claude-code"],
     model: "Claude Sonnet 4.6",
     effort: "low",
@@ -64,7 +73,7 @@ export const conversations: Conversation[] = [
     id: "c5",
     title: "Chain-of-thought prompts",
     projectPath: "D:\\experiments\\prompting\\cot-math",
-    date: "2026-06-11T16:50:00Z",
+    date: daysAgo(12, 16, 50),
     tags: ["cursor"],
     model: "GPT-5",
     effort: "high",
@@ -73,7 +82,7 @@ export const conversations: Conversation[] = [
     id: "c6",
     title: "Reranker eval harness",
     projectPath: "C:\\dev\\eval\\reranker-harness",
-    date: "2026-06-09T08:30:00Z",
+    date: daysAgo(20, 8, 30),
     tags: ["codex"],
     model: "o3",
     effort: "medium",
@@ -82,7 +91,7 @@ export const conversations: Conversation[] = [
     id: "c7",
     title: "Quantization experiments",
     projectPath: "C:\\Users\\mdokukin\\research\\quantization-lab",
-    date: "2026-06-07T13:00:00Z",
+    date: daysAgo(45, 13, 0),
     tags: ["claude-code"],
     model: "Claude Opus 4.7",
     effort: "medium",

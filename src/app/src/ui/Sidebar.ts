@@ -21,6 +21,20 @@ function iconButton(svg: string, label: string): HTMLButtonElement {
   return btn;
 }
 
+const DAY_MS = 86_400_000;
+const SECTIONS = ["Today", "Yesterday", "This Week", "This Month", "Older"] as const;
+type Section = (typeof SECTIONS)[number];
+
+// Bucket a conversation by how far its date is from the start of the current day.
+function sectionFor(date: string, startOfToday: number): Section {
+  const t = new Date(date).getTime();
+  if (t >= startOfToday) return "Today";
+  if (t >= startOfToday - DAY_MS) return "Yesterday";
+  if (t >= startOfToday - 7 * DAY_MS) return "This Week";
+  if (t >= startOfToday - 30 * DAY_MS) return "This Month";
+  return "Older";
+}
+
 // Conversation navigator: a title row with filter/search actions over a
 // scrollable, date-sorted list. The framework filter lives in a popover opened
 // from the filter icon; it owns the active-filter state and re-renders the list
@@ -42,7 +56,24 @@ export function createSidebar(conversations: Conversation[]): HTMLElement {
       );
       return;
     }
-    for (const c of sorted) list.append(createConversationBlock(c));
+
+    // Group the (already date-desc) list into date sections, newest first.
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const groups = new Map<Section, Conversation[]>();
+    for (const c of sorted) {
+      const section = sectionFor(c.date, startOfToday);
+      const bucket = groups.get(section) ?? [];
+      bucket.push(c);
+      groups.set(section, bucket);
+    }
+
+    for (const section of SECTIONS) {
+      const items = groups.get(section);
+      if (!items) continue;
+      list.append(el("div", { class: "conversation-section-header", text: section }));
+      for (const c of items) list.append(createConversationBlock(c));
+    }
   };
 
   // Filter order: "live" first, then frameworks in first-seen order.

@@ -189,6 +189,19 @@ html, body {
     text-align: center;
 }
 
+.conversation-section-header {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    padding: 6px 12px 4px;
+    font-size: 0.62rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-secondary);
+    background: var(--model-manager-bg);
+}
+
 /* --- Conversation block (list row) --------------------------------------- */
 .conversation-block {
     display: flex;
