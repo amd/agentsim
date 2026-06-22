@@ -89,12 +89,62 @@ html, body {
     flex-shrink: 0;
 }
 
+.sidebar-header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
 .sidebar-title {
     margin: 0;
     font-size: 0.75rem;
     font-weight: 500;
     text-transform: uppercase;
     letter-spacing: 0.5px;
+    color: var(--text-secondary);
+}
+
+.sidebar-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* Smaller icon buttons than the default .lm-icon-btn for the header actions. */
+.sidebar-actions .lm-icon-btn { width: 24px; height: 24px; }
+.sidebar-actions .lm-icon-btn.active {
+    background: var(--bg-alpha-1);
+    color: var(--text-primary);
+    border-color: var(--border-5);
+}
+
+.sidebar-action-wrap { position: relative; }
+
+/* Filter "miniature" — floating panel anchored to the filter icon. */
+.filter-popover {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 6px;
+    z-index: 1000;
+    min-width: 200px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-primary);
+    border-radius: var(--radius-md);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    animation: menubar-slide-down 0.15s ease;
+}
+
+.filter-popover-title {
+    font-size: 0.62rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
     color: var(--text-secondary);
 }
 
