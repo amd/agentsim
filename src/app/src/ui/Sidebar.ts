@@ -1,8 +1,9 @@
 import { el, clear } from "./dom.js";
 import { createConversationBlock } from "./ConversationBlock.js";
-import { sortByDateDesc, type Conversation } from "../data/conversations.js";
+import { type Conversation } from "../data/conversations.js";
 import { SECTIONS, sectionFor, startOfToday, type Section } from "../data/sections.js";
-import { createFilterPanel, emptyFilters, matchesFilters, type Filters } from "./FilterPanel.js";
+import { createFilterPanel, emptyFilters, type Filters } from "./FilterPanel.js";
+import { fetchFacets, fetchSessions } from "../data/api.js";
 
 // Feather-style 24x24 stroke icons. Set via innerHTML because el() builds HTML
 // nodes, not the SVG namespace.
@@ -27,51 +28,69 @@ function markWip(btn: HTMLButtonElement): void {
   btn.removeAttribute("title");
 }
 
+// Render the (already date-desc sorted) sessions into date-section groups.
+function renderGroups(list: HTMLElement, sorted: Conversation[]): void {
+  if (sorted.length === 0) {
+    list.append(el("div", { class: "conversation-empty", text: "No conversations match." }));
+    return;
+  }
+  const startToday = startOfToday();
+  const groups = new Map<Section, Conversation[]>();
+  for (const c of sorted) {
+    const s = sectionFor(c.date, startToday);
+    const bucket = groups.get(s) ?? [];
+    bucket.push(c);
+    groups.set(s, bucket);
+  }
+  for (const s of SECTIONS) {
+    const items = groups.get(s);
+    if (!items) continue;
+    list.append(el("div", { class: "conversation-section-header", text: s }));
+    const showTime = s === "Today" || s === "Yesterday";
+    for (const c of items) list.append(createConversationBlock(c, showTime));
+  }
+}
+
 // Conversation navigator: a title row with filter/search actions over a
-// scrollable list grouped into date sections. The filter window lives in a
-// popover opened from the filter icon; it owns the filter state and re-renders
-// the list in place on change.
-export function createSidebar(conversations: Conversation[]): HTMLElement {
+// scrollable list grouped into date sections. The backend owns loading and
+// filtering; the filter window (built from server facets) sends the filter state
+// to the server and the list re-renders with whatever comes back.
+export function createSidebar(): HTMLElement {
   const list = el("div", { class: "conversation-list" });
 
-  const renderList = (filters: Filters) => {
-    const startToday = startOfToday();
-    const filtered = conversations.filter((c) => matchesFilters(c, filters, startToday));
-    const sorted = sortByDateDesc(filtered);
+  // Guard against out-of-order responses: only the latest request paints.
+  let requestSeq = 0;
 
+  const renderList = async (filters: Filters): Promise<void> => {
+    const seq = ++requestSeq;
     clear(list);
-    if (sorted.length === 0) {
+    list.append(el("div", { class: "conversation-empty", text: "Loading…" }));
+
+    try {
+      const sessions = await fetchSessions(filters);
+      if (seq !== requestSeq) return; // a newer request superseded this one
+      clear(list);
+      renderGroups(list, sessions);
+    } catch {
+      if (seq !== requestSeq) return;
+      clear(list);
       list.append(
-        el("div", { class: "conversation-empty", text: "No conversations match." }),
+        el("div", { class: "conversation-empty", text: "Cannot reach server." }),
       );
-      return;
-    }
-
-    // Group the (already date-desc) list into date sections, newest first.
-    const groups = new Map<Section, Conversation[]>();
-    for (const c of sorted) {
-      const s = sectionFor(c.date, startToday);
-      const bucket = groups.get(s) ?? [];
-      bucket.push(c);
-      groups.set(s, bucket);
-    }
-
-    for (const s of SECTIONS) {
-      const items = groups.get(s);
-      if (!items) continue;
-      list.append(el("div", { class: "conversation-section-header", text: s }));
-      const showTime = s === "Today" || s === "Yesterday";
-      for (const c of items) list.append(createConversationBlock(c, showTime));
     }
   };
 
   // Filter popover: the 4-section filter panel, revealed from the filter icon.
-  // Anchored to a position:relative wrapper; click outside closes it.
+  // Anchored to a position:relative wrapper; click outside closes it. Its options
+  // come from server facets, fetched once on mount.
   const filterBtn = iconButton(FILTER_SVG, "Filter");
-  const popover = el("div", { class: "filter-popover" }, [
-    createFilterPanel(conversations, renderList),
-  ]);
+  const popover = el("div", { class: "filter-popover" });
   popover.style.display = "none";
+  void fetchFacets()
+    .then((facets) => popover.append(createFilterPanel(facets, (f) => void renderList(f))))
+    .catch(() =>
+      popover.append(el("div", { class: "conversation-empty", text: "Cannot reach server." })),
+    );
 
   const closePopover = () => {
     popover.style.display = "none";
@@ -103,7 +122,7 @@ export function createSidebar(conversations: Conversation[]): HTMLElement {
     ]),
   ]);
 
-  renderList(emptyFilters());
+  void renderList(emptyFilters());
 
   return el("aside", { class: "sidebar" }, [header, list]);
 }

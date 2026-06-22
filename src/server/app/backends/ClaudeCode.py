@@ -16,11 +16,17 @@ tool name is carried in ``title``.
 import glob
 import json
 import os
+import time
 from datetime import datetime, timedelta
 from pathlib import Path
 
 from app.backends.AgenticFramework import AgenticFramework
 from app.models import SessionMetadata, SessionTrace, Span, SpanType
+
+# A session whose transcript file was modified within this many seconds is
+# treated as "live" (still being appended to). The transcript has no explicit
+# live marker, so recency of the file is the only available signal.
+LIVE_WINDOW_S = 120
 
 # Map the intermediate timeline block types to the wire SpanType. Any block type
 # not listed here (e.g. "attachment") falls back to SpanType.other.
@@ -65,6 +71,14 @@ def _shift_timestamp(timestamp: str, seconds: float) -> str:
 
 def _offset_ms(timestamp: str, origin: datetime) -> int:
     return int((_parse_ts(timestamp) - origin).total_seconds() * 1000)
+
+
+def _is_live(session_path: str) -> bool:
+    """A session is live if its transcript was touched within LIVE_WINDOW_S."""
+    try:
+        return (time.time() - os.path.getmtime(session_path)) <= LIVE_WINDOW_S
+    except OSError:
+        return False
 
 
 def _content_to_str(content: object) -> str:
@@ -202,6 +216,8 @@ class ClaudeCode(AgenticFramework):
             title = None
             created = None
             modified = None
+            project_path = ""
+            model = ""
             for record in records:
                 rtype = record.get("type")
                 if rtype == "ai-title":
@@ -210,11 +226,23 @@ class ClaudeCode(AgenticFramework):
                     created = record.get("timestamp")
                 elif rtype == "assistant" and record.get("timestamp"):
                     modified = record.get("timestamp")
+                # cwd/model can appear on several record types; take the first cwd
+                # and the latest model seen.
+                if not project_path and record.get("cwd"):
+                    project_path = record.get("cwd")
+                record_model = (record.get("message") or {}).get("model")
+                if record_model:
+                    model = record_model
 
             sessions.append(SessionMetadata(
                 session_id=session_id,
                 title=title or session_id,
                 data_path=path,
+                is_live=_is_live(path),
+                project_path=project_path,
+                project_slug=os.path.basename(os.path.dirname(path)),
+                model=model,
+                effort_level="",  # not present in Claude Code transcripts
                 timestamp_created=created or "",
                 timestamp_modified=modified or "",
             ))

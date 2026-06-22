@@ -11,6 +11,7 @@ The order of operations is the same as any server daemon:
 """
 
 import argparse
+from pathlib import Path
 
 import uvicorn
 
@@ -24,10 +25,18 @@ DEFAULT_PORT = 4317
 FRAMEWORK_CLASSES: list[type[AgenticFramework]] = [ClaudeCode]
 
 
-def build_frameworks() -> dict[str, AgenticFramework]:
+def build_frameworks(data_dir: str | None = None) -> dict[str, AgenticFramework]:
+    """Build and initialize every backend.
+
+    When ``data_dir`` is given it's a shared root holding one subdirectory per
+    framework (``<data_dir>/<alias>``); each backend reads from its own subdir.
+    When omitted, each backend falls back to its own default location (e.g.
+    ClaudeCode reads ``~/.claude/projects``).
+    """
     frameworks: dict[str, AgenticFramework] = {}
     for cls in FRAMEWORK_CLASSES:
-        framework = cls()
+        root = str(Path(data_dir) / cls.alias) if data_dir else None
+        framework = cls(root)
         framework.init()
         frameworks[framework.alias] = framework
     return frameworks
@@ -36,9 +45,11 @@ def build_frameworks() -> dict[str, AgenticFramework]:
 def main() -> None:
     parser = argparse.ArgumentParser(prog="server")
     parser.add_argument("--port", type=int, default=DEFAULT_PORT)
+    parser.add_argument("--data-dir", default=None,
+                        help="shared data root; each framework reads <data-dir>/<alias>")
     args = parser.parse_args()
 
-    frameworks = build_frameworks()
+    frameworks = build_frameworks(args.data_dir)
     app = create_app(frameworks)
 
     print(f"[server] listening on http://localhost:{args.port}")

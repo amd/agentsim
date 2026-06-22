@@ -51,6 +51,7 @@ class SessionMetadata(BaseModel):
     project_path: str
     project_slug: str
 
+    framework: str = ""  # alias of the backend this session came from
     model: str
     effort_level: str
 
@@ -63,4 +64,28 @@ class SessionTrace(BaseModel):
 
     session_id: str
     spans: list[Span]
+
+
+class FrameworkFacet(BaseModel):
+    """One framework option for the filter window, with its session count."""
+
+    alias: str
+    name: str
+    count: int
+
+
+class ProjectFacet(BaseModel):
+    """One project option for the filter window, with its session count."""
+
+    path: str
+    name: str
+    count: int
+
+
+class SessionFacets(BaseModel):
+    """Distinct filter options across all sessions, built by the backend so the
+    frontend's filter window mirrors what's actually available."""
+
+    frameworks: list[FrameworkFacet]
+    projects: list[ProjectFacet]
 

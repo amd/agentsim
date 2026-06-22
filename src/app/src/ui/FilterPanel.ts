@@ -1,13 +1,11 @@
 import { el } from "./dom.js";
-import type { Conversation, Tag } from "../data/conversations.js";
-import { SECTIONS, type Section, sectionFor } from "../data/sections.js";
+import { SECTIONS, type Section } from "../data/sections.js";
+import type { Facets } from "../data/api.js";
 
-// Frameworks are every tag except the "live" marker.
-export type Framework = Exclude<Tag, "live">;
-
-// Combined filter state. Empty sets / "all" / false each mean "no constraint".
+// Combined filter state, sent to the backend on every change. Empty sets / "all"
+// / false each mean "no constraint". `frameworks` holds backend aliases.
 export interface Filters {
-  frameworks: Set<Framework>;
+  frameworks: Set<string>;
   live: boolean;
   projects: Set<string>; // full project paths
   date: Section | "all";
@@ -15,33 +13,6 @@ export interface Filters {
 
 export function emptyFilters(): Filters {
   return { frameworks: new Set(), live: false, projects: new Set(), date: "all" };
-}
-
-export function matchesFilters(c: Conversation, f: Filters, startOfTodayMs: number): boolean {
-  if (f.frameworks.size > 0 && !c.tags.some((t) => f.frameworks.has(t as Framework))) return false;
-  if (f.live && !c.tags.includes("live")) return false;
-  if (f.projects.size > 0 && !f.projects.has(c.projectPath)) return false;
-  if (f.date !== "all" && sectionFor(c.date, startOfTodayMs) !== f.date) return false;
-  return true;
-}
-
-function basename(p: string): string {
-  const parts = p.split(/[\\/]+/).filter(Boolean);
-  return parts[parts.length - 1] ?? p;
-}
-
-// Distinct frameworks across all conversations, in first-seen order.
-function frameworkOptions(items: Conversation[]): Framework[] {
-  const seen = new Set<Framework>();
-  for (const c of items) for (const t of c.tags) if (t !== "live") seen.add(t);
-  return [...seen];
-}
-
-// Distinct projects (full path + display name), in first-seen order.
-function projectOptions(items: Conversation[]): { path: string; name: string }[] {
-  const seen = new Map<string, string>();
-  for (const c of items) if (!seen.has(c.projectPath)) seen.set(c.projectPath, basename(c.projectPath));
-  return [...seen].map(([path, name]) => ({ path, name }));
 }
 
 function section(title: string, control: HTMLElement): HTMLElement {
@@ -58,16 +29,16 @@ interface Control {
 }
 
 // Multi-select pill row with an "All" reset (empty set = all).
-function multiPills<T extends string>(
-  values: T[],
-  set: Set<T>,
+function multiPills(
+  options: { value: string; label: string }[],
+  set: Set<string>,
   onChange: () => void,
 ): Control {
   const all = el("span", { class: "tag-pill", text: "All" });
-  const pills = values.map((v) => el("span", { class: "tag-pill", text: v, "data-v": v }));
+  const pills = options.map((o) => el("span", { class: "tag-pill", text: o.label, "data-v": o.value }));
   const sync = () => {
     all.classList.toggle("active", set.size === 0);
-    for (const p of pills) p.classList.toggle("active", set.has(p.dataset.v as T));
+    for (const p of pills) p.classList.toggle("active", set.has(p.dataset.v!));
   };
   all.addEventListener("click", () => {
     set.clear();
@@ -76,7 +47,7 @@ function multiPills<T extends string>(
   });
   for (const p of pills) {
     p.addEventListener("click", () => {
-      const v = p.dataset.v as T;
+      const v = p.dataset.v!;
       if (set.has(v)) set.delete(v);
       else set.add(v);
       sync();
@@ -138,10 +109,10 @@ function checkboxList(
   return { node: el("div", { class: "filter-check-list" }, rows), sync };
 }
 
-// The 4-section filter window. Owns its own Filters instance and fires onChange
-// with it on every change.
+// The 4-section filter window. Options come from backend facets; it owns its own
+// Filters instance and fires onChange with it on every change.
 export function createFilterPanel(
-  conversations: Conversation[],
+  facets: Facets,
   onChange: (f: Filters) => void,
 ): HTMLElement {
   const filters = emptyFilters();
@@ -162,9 +133,17 @@ export function createFilterPanel(
     onChange(filters);
   };
 
-  const frameworks = multiPills(frameworkOptions(conversations), filters.frameworks, fire);
+  const frameworks = multiPills(
+    facets.frameworks.map((f) => ({ value: f.alias, label: f.name })),
+    filters.frameworks,
+    fire,
+  );
 
-  const projects = checkboxList(projectOptions(conversations), filters.projects, fire);
+  const projects = checkboxList(
+    facets.projects.map((p) => ({ path: p.path, name: p.name })),
+    filters.projects,
+    fire,
+  );
 
   const live = singlePills(
     [

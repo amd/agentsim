@@ -28,19 +28,18 @@ impl ServerProcess {
     pub fn start(&self) {
         let repo_root = repo_root();
         let server_dir = repo_root.join("src/server");
-        let data_dir = repo_root.join("data");
         let python = python_executable(&repo_root);
 
         println!("[host] starting python server: {} -m app.main", python.display());
 
+        // No --data-dir: each backend falls back to its own default location
+        // (ClaudeCode reads ~/.claude/projects), so the app shows real sessions.
         let result = Command::new(python)
             .current_dir(&server_dir)
             .arg("-m")
             .arg("app.main")
             .arg("--port")
             .arg("4317")
-            .arg("--data-dir")
-            .arg(data_dir)
             .spawn();
 
         match result {
