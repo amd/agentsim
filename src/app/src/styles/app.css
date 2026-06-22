@@ -140,6 +140,11 @@ html, body {
     color: var(--text-primary);
     border-color: var(--border-5);
 }
+/* Filter icon while any constraint is applied: accent color so the user sees
+   the list is filtered even with the panel closed. */
+.sidebar-actions .lm-icon-btn.has-filters {
+    color: var(--lemon-yellow-bright);
+}
 
 /* "Work in progress" hover tooltip for placeholder action buttons. */
 .wip-tip { position: relative; }

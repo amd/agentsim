@@ -2,7 +2,7 @@ import { el, clear } from "./dom.js";
 import { createConversationBlock } from "./ConversationBlock.js";
 import { type Conversation } from "../data/conversations.js";
 import { SECTIONS, sectionFor, startOfToday, type Section } from "../data/sections.js";
-import { createFilterPanel, emptyFilters, type Filters } from "./FilterPanel.js";
+import { createFilterPanel, emptyFilters, hasActiveFilters, type Filters } from "./FilterPanel.js";
 import { fetchFacets, fetchSessions } from "../data/api.js";
 
 // Feather-style 24x24 stroke icons. Set via innerHTML because el() builds HTML
@@ -62,6 +62,8 @@ export function createSidebar(): HTMLElement {
   let requestSeq = 0;
 
   const renderList = async (filters: Filters): Promise<void> => {
+    // Highlight the filter icon whenever any constraint is active.
+    filterBtn.classList.toggle("has-filters", hasActiveFilters(filters));
     const seq = ++requestSeq;
     clear(list);
     list.append(el("div", { class: "conversation-empty", text: "Loading…" }));

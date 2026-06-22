@@ -22,6 +22,18 @@ export function emptyFilters(): Filters {
   };
 }
 
+// True when any constraint is set (used to show the reset button and to
+// highlight the filter icon).
+export function hasActiveFilters(f: Filters): boolean {
+  return (
+    f.frameworks.size > 0 ||
+    f.live ||
+    f.projects.size > 0 ||
+    f.models.size > 0 ||
+    f.date !== "all"
+  );
+}
+
 function section(title: string, control: HTMLElement): HTMLElement {
   return el("div", { class: "filter-section" }, [
     el("div", { class: "filter-section-title", text: title }),
@@ -124,16 +136,9 @@ export function createFilterPanel(
 ): HTMLElement {
   const filters = emptyFilters();
 
-  const anyApplied = () =>
-    filters.frameworks.size > 0 ||
-    filters.live ||
-    filters.projects.size > 0 ||
-    filters.models.size > 0 ||
-    filters.date !== "all";
-
   const reset = el("button", { class: "filter-reset", text: "Reset filters" });
   const syncReset = () => {
-    reset.style.display = anyApplied() ? "" : "none";
+    reset.style.display = hasActiveFilters(filters) ? "" : "none";
   };
 
   const fire = () => {
