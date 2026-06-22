@@ -10,10 +10,13 @@ export function createConversationBlock(conversation: Conversation): HTMLElement
   const isLive = conversation.tags.includes("live");
   const frameworkTags = conversation.tags.filter((t) => t !== "live");
 
+  const tooltip = `${conversation.model} · ${conversation.effort} effort`;
   const tags = el(
     "div",
     { class: "conversation-tags" },
-    frameworkTags.map((t) => el("span", { class: `lm-tag ${t}`, text: t })),
+    frameworkTags.map((t) =>
+      el("span", { class: `lm-tag ${t}`, text: t, title: tooltip }),
+    ),
   );
 
   const title = el("div", { class: "conversation-title-row" }, [
