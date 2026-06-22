@@ -19,6 +19,7 @@ pub fn run() {
     let server_for_state = server.clone();
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_opener::init())
         .setup(move |app| {
             // Stash the server handle in app state (good practice; lets future
             // commands reach it). Not strictly required for this sample.

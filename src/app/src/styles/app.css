@@ -210,8 +210,41 @@ html, body {
     gap: 6px;
 }
 
-.conversation-title-row .live {
+.conversation-kebab-wrap {
     margin-left: auto;
+    position: relative;
+    flex-shrink: 0;
+}
+
+.conversation-kebab.lm-icon-btn {
+    width: auto;
+    height: auto;
+    padding: 0;
+    background: transparent;
+    border: none;
+    color: var(--text-tertiary);
+    opacity: 0;
+    transition: opacity 0.15s ease, color 0.15s ease;
+}
+/* Reveal on block hover; stay visible while the menu is open. */
+.conversation-block:hover .conversation-kebab.lm-icon-btn,
+.conversation-kebab.lm-icon-btn.active {
+    opacity: 1;
+}
+.conversation-kebab.lm-icon-btn:hover {
+    background: transparent;
+    border: none;
+    color: var(--text-primary);
+}
+
+.kebab-menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 4px;
+    z-index: 1000;
+    min-width: 150px;
+    animation: menubar-slide-down 0.15s ease;
 }
 
 .conversation-title {
