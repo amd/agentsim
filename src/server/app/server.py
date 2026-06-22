@@ -1,9 +1,11 @@
 """HTTP endpoints for the server (FastAPI).
 
-``create_app`` is handed a registry of already-initialized backends, keyed by
-their alias. Each request names the framework it wants in the path
-(``/frameworks/{framework}/...``); the handler looks it up and dispatches. The
-backends are initialized once at startup -- nothing is reloaded per request.
+``create_app`` is handed a :class:`FrameworkRegistry` holding the active backends.
+Each request names the framework it wants in the path
+(``/frameworks/{framework}/...``); the handler looks it up and dispatches.
+Frameworks (data sources) can be added/removed at runtime via the
+``/frameworks`` CRUD endpoints, and every other endpoint reads the registry's
+live active set, so changes take effect immediately.
 
 The HTTP contract is the seam between client and server: the frontend (api.ts)
 and the CLI both speak it, so either can be swapped without the server changing.
@@ -17,12 +19,16 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.backends.AgenticFramework import AgenticFramework
 from app.models import (
+    AddFrameworkRequest,
+    AvailableFramework,
     FrameworkFacet,
+    FrameworkInfo,
     ProjectFacet,
     SessionFacets,
     SessionMetadata,
     SessionTrace,
 )
+from app.registry import AVAILABLE, FrameworkRegistry
 
 
 def _csv(value: str | None) -> set[str]:
@@ -41,7 +47,7 @@ def _parse_ts(timestamp: str) -> datetime | None:
         return None
 
 
-def create_app(frameworks: dict[str, AgenticFramework]) -> FastAPI:
+def create_app(registry: FrameworkRegistry) -> FastAPI:
     app = FastAPI(title="agent-sim")
 
     app.add_middleware(
@@ -52,16 +58,16 @@ def create_app(frameworks: dict[str, AgenticFramework]) -> FastAPI:
     )
 
     def _framework(alias: str) -> AgenticFramework:
-        backend = frameworks.get(alias)
+        backend = registry.get(alias)
         if backend is None:
-            known = ", ".join(sorted(frameworks)) or "(none)"
+            known = ", ".join(sorted(registry.active)) or "(none)"
             raise HTTPException(status_code=404, detail=f"unknown framework: {alias} (known: {known})")
         return backend
 
     def _all_sessions() -> list[SessionMetadata]:
-        """Union every backend's sessions, stamping each with its framework alias."""
+        """Union every active backend's sessions, stamping each with its alias."""
         merged: list[SessionMetadata] = []
-        for alias, backend in frameworks.items():
+        for alias, backend in registry.active.items():
             for item in backend.get_sessions_list():
                 item.framework = alias
                 merged.append(item)
@@ -70,11 +76,51 @@ def create_app(frameworks: dict[str, AgenticFramework]) -> FastAPI:
 
     @app.get("/health")
     def health() -> dict[str, object]:
-        return {"status": "ok", "frameworks": sorted(frameworks)}
+        return {"status": "ok", "frameworks": sorted(registry.active)}
 
     @app.get("/frameworks")
-    def list_frameworks() -> list[dict[str, str]]:
-        return [{"alias": alias, "name": fw.name} for alias, fw in frameworks.items()]
+    def list_frameworks() -> list[FrameworkInfo]:
+        """The active frameworks (data sources) currently being served."""
+        return [
+            FrameworkInfo(
+                alias=alias,
+                name=fw.name,
+                data_basepath=fw.data_basepath,
+                session_count=len(fw.get_sessions_list()),
+            )
+            for alias, fw in registry.active.items()
+        ]
+
+    @app.get("/frameworks/available")
+    def available_frameworks() -> list[AvailableFramework]:
+        """Every framework type the server can build, active or not."""
+        return [AvailableFramework(alias=cls.alias, name=cls.name) for cls in registry.available()]
+
+    @app.post("/frameworks", status_code=201)
+    def add_framework(body: AddFrameworkRequest) -> FrameworkInfo:
+        if body.alias not in AVAILABLE:
+            known = ", ".join(sorted(AVAILABLE)) or "(none)"
+            raise HTTPException(
+                status_code=404,
+                detail=f"unknown framework: {body.alias} (available: {known})",
+            )
+        try:
+            fw = registry.add(body.alias, body.path)
+        except ValueError:
+            raise HTTPException(status_code=409, detail=f"framework already active: {body.alias}")
+        return FrameworkInfo(
+            alias=body.alias,
+            name=fw.name,
+            data_basepath=fw.data_basepath,
+            session_count=len(fw.get_sessions_list()),
+        )
+
+    @app.delete("/frameworks/{alias}", status_code=204)
+    def remove_framework(alias: str) -> None:
+        try:
+            registry.remove(alias)
+        except KeyError:
+            raise HTTPException(status_code=404, detail=f"framework not active: {alias}")
 
     @app.get("/sessions")
     def list_sessions(
@@ -118,10 +164,10 @@ def create_app(frameworks: dict[str, AgenticFramework]) -> FastAPI:
         fw_facets = [
             FrameworkFacet(
                 alias=alias,
-                name=frameworks[alias].name if alias in frameworks else alias,
+                name=registry.active[alias].name if alias in registry.active else alias,
                 count=fw_counts.get(alias, 0),
             )
-            for alias in frameworks
+            for alias in registry.active
             if fw_counts.get(alias, 0) > 0
         ]
 

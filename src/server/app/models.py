@@ -89,3 +89,28 @@ class SessionFacets(BaseModel):
     frameworks: list[FrameworkFacet]
     projects: list[ProjectFacet]
 
+
+class AvailableFramework(BaseModel):
+    """A framework type the server knows how to build (the catalog), whether or
+    not it is currently active."""
+
+    alias: str
+    name: str
+
+
+class FrameworkInfo(BaseModel):
+    """An active framework backend (a data source the server is serving)."""
+
+    alias: str
+    name: str
+    data_basepath: str = ""
+    session_count: int = 0
+
+
+class AddFrameworkRequest(BaseModel):
+    """Body for activating a framework. ``path`` overrides the framework's
+    default data location; ``None`` uses its default."""
+
+    alias: str
+    path: str | None = None
+
