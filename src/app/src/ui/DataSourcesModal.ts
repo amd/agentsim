@@ -32,22 +32,13 @@ async function pickFolder(): Promise<string | null> {
   }
 }
 
-// "#RRGGBB" -> "rgba(r, g, b, a)", for a subtle background wash in the brand color.
-function tint(hex: string, alpha: number): string {
-  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
-  if (!m) return "transparent";
-  const n = parseInt(m[1], 16);
-  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
-}
-
-// Carry the framework's brand color on the whole row: colored name, accent
-// border, and a faint background wash.
-function paintRow(row: HTMLElement, name: HTMLElement, color: string): void {
-  if (!color) return;
-  name.style.color = color;
-  row.style.borderColor = tint(color, 0.5);
-  row.style.borderLeft = `3px solid ${color}`;
-  row.style.background = tint(color, 0.12);
+// A small colored chip identifying the framework — mirrors the sidebar's
+// framework tag (.lm-tag tinted with the backend's brand color), so color is
+// confined to a tag instead of washing the whole row.
+function frameworkTag(fw: FrameworkInfo): HTMLElement {
+  const tag = el("span", { class: "lm-tag", text: fw.name });
+  if (fw.primary_color) tag.style.color = fw.primary_color;
+  return tag;
 }
 
 // Manage Data Sources: a modal over the app that lists the active frameworks
@@ -78,22 +69,20 @@ function frameworkRow(fw: FrameworkInfo, refresh: () => void): HTMLElement {
     }
   });
 
-  const name = el("div", { class: "ds-row-name", text: fw.name });
   const row = el("div", { class: "ds-row" }, [
     el("div", { class: "ds-row-text" }, [
-      name,
+      el("div", { class: "ds-row-name" }, [frameworkTag(fw)]),
       el("div", { class: "ds-row-meta", text: meta }),
     ]),
     del,
   ]);
-  paintRow(row, name, fw.primary_color);
   return row;
 }
 
 // Render one auto-detected framework: its name + discovered path, with a
 // one-click Add that activates it at that default location.
 function detectedRow(fw: FrameworkInfo, refresh: () => void): HTMLElement {
-  const add = el("button", { class: "lm-btn lm-btn-accent", text: "Add", title: `Add ${fw.name}` });
+  const add = el("button", { class: "lm-btn lm-btn-secondary", text: "Add", title: `Add ${fw.name}` });
   add.addEventListener("click", async () => {
     add.disabled = true;
     try {
@@ -109,15 +98,13 @@ function detectedRow(fw: FrameworkInfo, refresh: () => void): HTMLElement {
     .filter(Boolean)
     .join("  ·  ");
 
-  const name = el("div", { class: "ds-row-name", text: fw.name });
   const row = el("div", { class: "ds-row" }, [
     el("div", { class: "ds-row-text" }, [
-      name,
+      el("div", { class: "ds-row-name" }, [frameworkTag(fw)]),
       el("div", { class: "ds-row-meta", text: meta }),
     ]),
     add,
   ]);
-  paintRow(row, name, fw.primary_color);
   return row;
 }
 
@@ -137,12 +124,12 @@ function manualControl(inactive: FrameworkInfo[], refresh: () => void): HTMLElem
     type: "text",
     placeholder: "Data path (required)",
   }) as HTMLInputElement;
-  const add = el("button", { class: "lm-btn lm-btn-accent", text: "Add" });
+  const add = el("button", { class: "lm-btn lm-btn-secondary", text: "Add" });
   const message = el("div", { class: "ds-add-msg" });
 
   const pathRow: HTMLElement[] = [path];
   if ("__TAURI_INTERNALS__" in window) {
-    const browse = el("button", { class: "lm-btn", text: "Browse…" });
+    const browse = el("button", { class: "lm-btn lm-btn-secondary", text: "Browse…" });
     browse.addEventListener("click", async () => {
       const picked = await pickFolder();
       if (picked) path.value = picked;
@@ -207,17 +194,15 @@ export function openDataSourcesModal(): void {
       const activeBody = active.length === 0
         ? el("div", { class: "ds-status", text: "No active data sources." })
         : el("div", { class: "ds-list" }, active.map((f) => frameworkRow(f, () => void render())));
-      body.append(el("div", { class: "ds-section" }, [
-        el("div", { class: "ds-section-title", text: "Active" }),
-        activeBody,
-      ]));
+      body.append(activeBody);
+
+      body.append(el("div", { class: "ds-divider" }));
 
       // Add new → Detected + Manual
       const detectedBody = detected.length === 0
         ? el("div", { class: "ds-add-empty", text: "No data sources detected." })
         : el("div", { class: "ds-list" }, detected.map((f) => detectedRow(f, () => void render())));
-      body.append(el("div", { class: "ds-section" }, [
-        el("div", { class: "ds-section-title", text: "Add New" }),
+      body.append(
         el("div", { class: "ds-group" }, [
           el("div", { class: "ds-subsection-title", text: "Detected" }),
           detectedBody,
@@ -226,7 +211,7 @@ export function openDataSourcesModal(): void {
           el("div", { class: "ds-subsection-title", text: "Manual" }),
           manualControl(inactive, () => void render()),
         ]),
-      ]));
+      );
     } catch {
       clear(body);
       body.append(el("div", { class: "ds-status", text: "Cannot reach server." }));

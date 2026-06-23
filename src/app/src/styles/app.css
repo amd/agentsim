@@ -543,22 +543,10 @@ html, body {
     overflow-y: auto;
 }
 
-.ds-section {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    padding: 12px;
-    background: var(--bg-alpha-02);
-    border: 1px solid var(--border-secondary);
-    border-radius: var(--radius-md);
-}
-
-.ds-section-title {
-    font-size: 0.62rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: var(--text-secondary);
+.ds-divider {
+    height: 1px;
+    background: var(--border-secondary);
+    margin: 2px 0;
 }
 
 .ds-group {
@@ -630,7 +618,18 @@ html, body {
     align-items: center;
     gap: 8px;
 }
-.ds-add-row .lm-input { flex: 1; min-width: 0; }
+.ds-add-row .lm-input { flex: 1; min-width: 0; padding: 5px 12px; font-size: 0.75rem; }
+
+/* Compact, quiet buttons for the modal's inline row actions — keeps the color
+   variants (secondary/danger) but drops the large uppercase .lm-btn metrics. */
+.ds-row .lm-btn,
+.ds-add-row .lm-btn {
+    padding: 5px 12px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    text-transform: none;
+    letter-spacing: 0;
+}
 
 .ds-add-empty {
     font-size: 0.7rem;
