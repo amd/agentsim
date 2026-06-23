@@ -8,6 +8,7 @@ export interface Conversation {
   id: string;
   title: string;
   projectPath: string; // absolute path to the project the session ran in
+  dataPath: string; // absolute path to the session's transcript (.jsonl) file
   date: string; // ISO 8601
   framework: string; // backend alias, e.g. "claudecode"
   frameworkName: string; // display name, e.g. "Claude Code"

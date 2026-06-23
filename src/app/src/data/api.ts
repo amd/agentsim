@@ -84,6 +84,7 @@ function toConversation(s: WireSession, meta: Map<string, FrameworkMeta>): Conve
     id: s.session_id,
     title: s.title,
     projectPath: s.project_path,
+    dataPath: s.data_path,
     date: s.timestamp_modified || s.timestamp_created,
     framework: s.framework,
     frameworkName: fw?.name ?? s.framework,

@@ -90,7 +90,14 @@ async function showInFiles(path: string): Promise<void> {
   }
 }
 
-function createKebab(projectPath: string): HTMLElement {
+// Directory containing `filePath` — used to open the folder that holds the
+// session's .jsonl transcript rather than the file itself.
+function parentDir(filePath: string): string {
+  const idx = Math.max(filePath.lastIndexOf("/"), filePath.lastIndexOf("\\"));
+  return idx > 0 ? filePath.slice(0, idx) : filePath;
+}
+
+function createKebab(projectPath: string, dataPath: string): HTMLElement {
   const btn = el("button", {
     class: "conversation-kebab lm-icon-btn",
     "aria-label": "Options",
@@ -98,8 +105,9 @@ function createKebab(projectPath: string): HTMLElement {
   });
   btn.innerHTML = KEBAB_SVG;
 
-  const item = el("div", { class: "item", text: "Show in Files" });
-  const menu = el("div", { class: "lm-menu kebab-menu" }, [item]);
+  const projectItem = el("div", { class: "item", text: "Open Project Folder" });
+  const dataItem = el("div", { class: "item", text: "Open Transcript Folder" });
+  const menu = el("div", { class: "lm-menu kebab-menu" }, [projectItem, dataItem]);
   menu.style.display = "none";
 
   const close = () => {
@@ -120,9 +128,13 @@ function createKebab(projectPath: string): HTMLElement {
     if (!isOpen) open();
   });
   menu.addEventListener("click", (e) => e.stopPropagation());
-  item.addEventListener("click", () => {
+  projectItem.addEventListener("click", () => {
     close();
     void showInFiles(projectPath);
+  });
+  dataItem.addEventListener("click", () => {
+    close();
+    void showInFiles(parentDir(dataPath));
   });
   document.addEventListener("click", close);
 
@@ -159,7 +171,7 @@ export function createConversationBlock(
       ? [el("span", { class: "live-dot", title: "Live" })]
       : []),
     el("span", { class: "conversation-title", text: conversation.title }),
-    createKebab(conversation.projectPath),
+    createKebab(conversation.projectPath, conversation.dataPath),
   ]);
 
   const subtitle = el("div", { class: "conversation-subtitle" });
