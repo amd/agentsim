@@ -538,7 +538,7 @@ html, body {
 .ds-body {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 6px;
     padding: 16px 18px 18px;
     overflow-y: auto;
 }
@@ -546,7 +546,7 @@ html, body {
 .ds-divider {
     height: 1px;
     background: var(--border-secondary);
-    margin: 2px 0;
+    margin: 6px 0;
 }
 
 .ds-group {
