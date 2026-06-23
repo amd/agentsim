@@ -60,8 +60,11 @@ export function createSidebar(): HTMLElement {
 
   // Guard against out-of-order responses: only the latest request paints.
   let requestSeq = 0;
+  // The filters last applied — so the reload button can re-fetch with them.
+  let currentFilters: Filters = emptyFilters();
 
   const renderList = async (filters: Filters): Promise<void> => {
+    currentFilters = filters;
     // Highlight the filter icon whenever any constraint is active.
     filterBtn.classList.toggle("has-filters", hasActiveFilters(filters));
     const seq = ++requestSeq;
@@ -115,11 +118,17 @@ export function createSidebar(): HTMLElement {
   popover.addEventListener("click", (e) => e.stopPropagation());
   document.addEventListener("click", closePopover);
 
-  // Reload and Search are placeholders: a hover tooltip announces they're not
-  // wired up yet. (Reload will re-fetch session data later.)
+  // Reload: re-fetch every active data source's sessions (the backend reads them
+  // fresh from disk per request), keeping the current filters. Spins while in
+  // flight; ignores clicks until the refresh settles.
   const reloadBtn = iconButton(RELOAD_SVG, "Reload");
-  markWip(reloadBtn);
+  reloadBtn.addEventListener("click", () => {
+    if (reloadBtn.classList.contains("spinning")) return;
+    reloadBtn.classList.add("spinning");
+    void renderList(currentFilters).finally(() => reloadBtn.classList.remove("spinning"));
+  });
 
+  // Search is a placeholder: a hover tooltip announces it's not wired up yet.
   const searchBtn = iconButton(SEARCH_SVG, "Search");
   markWip(searchBtn);
 
