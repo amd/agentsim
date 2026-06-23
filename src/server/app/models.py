@@ -52,11 +52,18 @@ class SessionMetadata(BaseModel):
     project_slug: str
 
     framework: str = ""  # alias of the backend this session came from
-    model: str
+    model: str  # canonical model id as recorded by the framework (e.g. "claude-opus-4-8")
+    model_display: str = ""  # human-facing label (prefix-stripped); falls back to model
     effort_level: str
 
     timestamp_created: str
     timestamp_modified: str
+
+    # to be added
+    # message counts
+    # tokens usage
+    # estimated cost
+    # duration
 
 
 class SessionTrace(BaseModel):

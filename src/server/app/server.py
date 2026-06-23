@@ -66,14 +66,17 @@ def create_app(registry: FrameworkRegistry) -> FastAPI:
     def _prepare(
         items: list[SessionMetadata], alias: str, backend: AgenticFramework
     ) -> list[SessionMetadata]:
-        """Stamp each session with its framework alias and apply the framework's
-        model-name prefix stripping. Keeps this normalization on the server so
-        clients display whatever they're given."""
+        """Stamp each session with its framework alias and derive its display
+        model name (the framework's prefix stripped). The canonical `model` is
+        left intact so clients keep the real id (needed to launch the CLI); only
+        the additive `model_display` carries the prettified label."""
         prefix = backend.remove_model_nameprefix
         for item in items:
             item.framework = alias
             if prefix and item.model.startswith(prefix):
-                item.model = item.model[len(prefix):]
+                item.model_display = item.model[len(prefix):]
+            else:
+                item.model_display = item.model
         return items
 
     def _all_sessions() -> list[SessionMetadata]:
@@ -201,7 +204,7 @@ def create_app(registry: FrameworkRegistry) -> FastAPI:
                 continue
             if wanted_proj and s.project_path not in wanted_proj:
                 continue
-            if wanted_model and s.model not in wanted_model:
+            if wanted_model and s.model_display not in wanted_model:
                 continue
             if ts_from or ts_to:
                 ts = _parse_ts(s.timestamp_modified)
@@ -243,8 +246,8 @@ def create_app(registry: FrameworkRegistry) -> FastAPI:
 
         model_counts: dict[str, int] = {}
         for s in sessions:
-            if s.model:
-                model_counts[s.model] = model_counts.get(s.model, 0) + 1
+            if s.model_display:
+                model_counts[s.model_display] = model_counts.get(s.model_display, 0) + 1
         model_facets = [
             ModelFacet(name=name, count=count)
             for name, count in sorted(model_counts.items(), key=lambda kv: kv[1], reverse=True)

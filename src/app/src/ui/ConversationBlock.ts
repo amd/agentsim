@@ -97,7 +97,25 @@ function parentDir(filePath: string): string {
   return idx > 0 ? filePath.slice(0, idx) : filePath;
 }
 
-function createKebab(projectPath: string, dataPath: string): HTMLElement {
+// Open a terminal that resumes this session via the Claude Code CLI. No host in
+// browser dev, so just log the command that would run.
+async function launchSession(conversation: Conversation): Promise<void> {
+  if (!("__TAURI_INTERNALS__" in window)) {
+    console.log(`[conversation] Launch Session: claude --resume ${conversation.id} --model ${conversation.model}`);
+    return;
+  }
+  try {
+    await invoke("launch_session", {
+      sessionId: conversation.id,
+      model: conversation.model,
+      projectPath: conversation.projectPath,
+    });
+  } catch (err) {
+    console.error("[conversation] Launch Session failed", err);
+  }
+}
+
+function createKebab(conversation: Conversation): HTMLElement {
   const btn = el("button", {
     class: "conversation-kebab lm-icon-btn",
     "aria-label": "Options",
@@ -105,9 +123,10 @@ function createKebab(projectPath: string, dataPath: string): HTMLElement {
   });
   btn.innerHTML = KEBAB_SVG;
 
+  const launchItem = el("div", { class: "item", text: "Launch Session" });
   const projectItem = el("div", { class: "item", text: "Open Project Folder" });
   const dataItem = el("div", { class: "item", text: "Open Transcript Folder" });
-  const menu = el("div", { class: "lm-menu kebab-menu" }, [projectItem, dataItem]);
+  const menu = el("div", { class: "lm-menu kebab-menu" }, [launchItem, projectItem, dataItem]);
   menu.style.display = "none";
 
   const close = () => {
@@ -128,13 +147,17 @@ function createKebab(projectPath: string, dataPath: string): HTMLElement {
     if (!isOpen) open();
   });
   menu.addEventListener("click", (e) => e.stopPropagation());
+  launchItem.addEventListener("click", () => {
+    close();
+    void launchSession(conversation);
+  });
   projectItem.addEventListener("click", () => {
     close();
-    void showInFiles(projectPath);
+    void showInFiles(conversation.projectPath);
   });
   dataItem.addEventListener("click", () => {
     close();
-    void showInFiles(parentDir(dataPath));
+    void showInFiles(parentDir(conversation.dataPath));
   });
   document.addEventListener("click", close);
 
@@ -147,7 +170,7 @@ export function createConversationBlock(
   conversation: Conversation,
   showTime = false,
 ): HTMLElement {
-  const tooltip = `${conversation.model} · ${conversation.effort} effort`;
+  const tooltip = `${conversation.modelDisplay} · ${conversation.effort} effort`;
   const frameworkChip = el("span", {
     class: "lm-tag",
     text: conversation.frameworkName,
@@ -156,8 +179,8 @@ export function createConversationBlock(
   if (conversation.frameworkColor) frameworkChip.style.color = conversation.frameworkColor;
 
   // Model chip sits in front of the framework chip and shares its brand color.
-  const modelChip = conversation.model
-    ? el("span", { class: "lm-tag", text: conversation.model, title: tooltip })
+  const modelChip = conversation.modelDisplay
+    ? el("span", { class: "lm-tag", text: conversation.modelDisplay, title: tooltip })
     : null;
   if (modelChip && conversation.frameworkColor) modelChip.style.color = conversation.frameworkColor;
 
@@ -171,7 +194,7 @@ export function createConversationBlock(
       ? [el("span", { class: "live-dot", title: "Live" })]
       : []),
     el("span", { class: "conversation-title", text: conversation.title }),
-    createKebab(conversation.projectPath, conversation.dataPath),
+    createKebab(conversation),
   ]);
 
   const subtitle = el("div", { class: "conversation-subtitle" });

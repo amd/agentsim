@@ -14,6 +14,7 @@ export interface Conversation {
   frameworkName: string; // display name, e.g. "Claude Code"
   frameworkColor: string; // CSS hex from the backend, e.g. "#D97757"
   isLive: boolean; // session still being appended to
-  model: string; // model the framework ran, e.g. "Claude Opus 4.7"
+  model: string; // canonical model id, e.g. "claude-opus-4-8" (used to launch the CLI)
+  modelDisplay: string; // human-facing label, e.g. "opus-4-8" (shown in chips)
   effort: Effort;
 }

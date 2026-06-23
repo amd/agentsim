@@ -52,6 +52,7 @@ pub fn run() {
             commands::minimize_window,
             commands::maximize_window,
             commands::close_window,
+            commands::launch_session,
         ])
         .build(tauri::generate_context!())
         .expect("failed to build Tauri app")

@@ -17,6 +17,7 @@ interface WireSession {
   project_path: string;
   project_slug: string;
   model: string;
+  model_display: string;
   effort_level: string;
   timestamp_created: string;
   timestamp_modified: string;
@@ -91,6 +92,7 @@ function toConversation(s: WireSession, meta: Map<string, FrameworkMeta>): Conve
     frameworkColor: fw?.color ?? "",
     isLive: s.is_live,
     model: s.model,
+    modelDisplay: s.model_display || s.model,
     effort: (s.effort_level || "medium") as Conversation["effort"],
   };
 }
