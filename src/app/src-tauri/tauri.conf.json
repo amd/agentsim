@@ -14,7 +14,8 @@
       {
         "title": "AgentSim",
         "width": 980,
-        "height": 640
+        "height": 640,
+        "decorations": false
       }
     ],
     "security": {

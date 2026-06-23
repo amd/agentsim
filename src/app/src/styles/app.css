@@ -73,6 +73,31 @@ html, body {
     pointer-events: none;
 }
 
+/* Window controls (borderless title bar). Cloned 1:1 from reference/lemonade's
+   .title-bar-right / .title-bar-button. Pushed to the far right of the bar. */
+.menubar-controls {
+    display: flex;
+    align-items: center;
+    margin-left: auto;
+}
+
+.menubar-btn {
+    width: 46px;
+    height: 32px;
+    border: none;
+    background: transparent;
+    color: var(--text-primary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.15s ease;
+}
+.menubar-btn:hover { background: var(--bg-alpha-1); }
+.menubar-btn:active { background: var(--bg-alpha-2); }
+.menubar-btn.close:hover { background: var(--title-btn-hover); }
+.menubar-btn.close:active { background: var(--title-btn-active); }
+
 .menubar-item-wrapper { position: relative; }
 
 .menubar-item {

@@ -16,6 +16,8 @@
 
     /* --- Surfaces (dark) --- */
     --title-surface: #000000;
+    --title-btn-hover: #e81123;       /* close-button hover (Windows red) */
+    --title-btn-active: #c50e1f;
     --header-bg-color: #000000;
     --header-text: var(--text-quaternary);
     --bg-primary: #0a0a0a;
@@ -152,6 +154,8 @@
    ---------------------------------------------------------------------------- */
 [data-theme="light"] {
     --title-surface: #efebe1;
+    --title-btn-hover: #e81123;
+    --title-btn-active: #c50e1f;
     --header-bg-color: #fdfbf6;
     --bg-primary: #fdfbf6;
     --bg-secondary: #f5f2ec;
