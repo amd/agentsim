@@ -1,5 +1,6 @@
 import { el } from "./dom.js";
 import type { Menu, MenuItem } from "../data/menus.js";
+import darkIconUrl from "../../assets/icon/light.png";
 
 // Controls bar: File / Tools / View / Help. Click a label to open its dropdown;
 // only one is open at a time; clicking the label again or anywhere outside
@@ -84,5 +85,6 @@ export function createMenuBar(menus: Menu[]): HTMLElement {
   // Click anywhere outside an open menu closes it.
   document.addEventListener("click", () => close());
 
-  return el("div", { class: "menubar" }, wrappers);
+  const icon = el("img", { class: "menubar-icon", src: darkIconUrl, alt: "" });
+  return el("div", { class: "menubar" }, [icon, ...wrappers]);
 }
