@@ -714,6 +714,14 @@ html, body {
     overflow: hidden;
 }
 
+/* Drop the per-block border: zoomed out, narrow blocks collapse to just their
+   border color. Selection still reads via its inset box-shadow. */
+.canvas-timeline.tlw .vis-item { border-width: 0; }
+
+/* Summary/merged bars aren't clickable, so don't show the yellow selection
+   outline when vis marks one selected. */
+.canvas-timeline.tlw .vis-item.summary.vis-selected { box-shadow: none; }
+
 .canvas-section {
     display: flex;
     flex-direction: column;

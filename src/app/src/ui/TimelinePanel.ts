@@ -22,6 +22,21 @@ const spanEndMs = (s: Span): number => {
 const spanDurationMs = (s: Span): number =>
   s.duration_ms ?? Math.max(0, spanEndMs(s) - s.offset_start_ms);
 
+// If the content parses as a JSON object/array, re-emit it pretty-printed with
+// 2-space indent; otherwise return it untouched (bare strings/numbers and
+// non-JSON text are left as-is).
+function prettyJson(text: string): string {
+  try {
+    const parsed = JSON.parse(text);
+    if (parsed !== null && typeof parsed === "object") {
+      return JSON.stringify(parsed, null, 2);
+    }
+  } catch {
+    /* not JSON — fall through */
+  }
+  return text;
+}
+
 const prettyType = (type: string): string =>
   type.replace(/[_-]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
@@ -80,23 +95,19 @@ export function createTimelinePanel(
   let closeInfo: (() => void) | null = null;
 
   const showInfo = (p: SelectEventPayload) => {
-    closeInfo?.();
     const { type, span, merged, startMs, endMs } = p;
-    const duration = span ? spanDurationMs(span) : Math.max(0, endMs - startMs);
-    const timing = `${formatClock(startMs)} → ${formatClock(endMs)} · ${duration} ms`;
-
-    let title: string;
-    let subtitle: string;
-    let content: string;
+    // Merged/collapsed summary bars have no single span — clicking one expands
+    // its section so the individual blocks become clickable.
     if (merged || !span) {
-      title = `${prettyType(type)} · merged`;
-      subtitle = `${timing} (union of overlapping spans)`;
-      content = "Merged coverage of overlapping spans in this section.";
-    } else {
-      title = span.title;
-      subtitle = `${prettyType(type)} · ${timing}`;
-      content = span.content?.trim() ? span.content : "(no content)";
+      widget?.toggleSection(type);
+      return;
     }
+    closeInfo?.();
+    const duration = spanDurationMs(span);
+    const timing = `${formatClock(startMs)} → ${formatClock(endMs)} · ${duration} ms`;
+    const title = span.title;
+    const subtitle = `${prettyType(type)} · ${timing}`;
+    const content = span.content?.trim() ? prettyJson(span.content) : "(no content)";
 
     const closeBtn = el("button", {
       class: "lm-icon-btn ds-close",
