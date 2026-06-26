@@ -391,6 +391,10 @@ html, body {
     background: var(--bg-alpha-03);
     border-left-color: var(--border-6);
 }
+.conversation-block.selected {
+    background: var(--bg-alpha-04);
+    border-left-color: var(--lemon-yellow);
+}
 
 .conversation-title-row {
     display: flex;
@@ -699,4 +703,72 @@ html, body {
     font-size: 0.9rem;
     line-height: 1.45;
     color: var(--text-aaa);
+}
+
+/* The timeline widget fills its mount (it is height:100%); drop the body padding
+   and scrolling so it can own the full panel. */
+.canvas-section[data-panel="timeline"] .canvas-section-body {
+    padding: 0;
+    overflow: hidden;
+    position: relative;
+}
+
+/* The miniature is short (10% panel); trim its body padding so the overview
+   has room. */
+.canvas-section[data-panel="timeline-miniature"] .canvas-section-body {
+    padding: 10px 12px;
+}
+
+/* Empty/loading/error states shown before a widget is mounted. */
+.tl-state {
+    padding: 18px;
+    color: var(--text-secondary);
+}
+
+/* --- block-info panel (selected span details) --------------------------- */
+.tl-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.tl-info-title {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+.tl-info-subtitle {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+}
+.tl-info-content {
+    margin-top: 6px;
+    white-space: pre-wrap;
+    word-break: break-word;
+    color: var(--text-aaa);
+}
+
+/* --- host timeline miniature (overview + viewport) ---------------------- */
+.tl-mini-content {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    min-height: 36px;
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+}
+.tl-mini-clip {
+    position: absolute;
+    background: var(--lemon-amber);
+    opacity: 0.7;
+    border-radius: 1px;
+}
+.tl-mini-window {
+    position: absolute;
+    top: 0;
+    height: 100%;
+    background: var(--bg-alpha-2);
+    border: 1px solid var(--lemon-yellow);
+    border-radius: 2px;
+    pointer-events: none;
 }

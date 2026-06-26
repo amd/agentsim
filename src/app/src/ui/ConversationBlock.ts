@@ -19,6 +19,9 @@ const KEBAB_SVG =
 // Only one kebab menu open at a time across all blocks.
 let activeKebabClose: (() => void) | null = null;
 
+// Only one conversation block selected at a time across all blocks.
+let selectedBlock: HTMLElement | null = null;
+
 // Offscreen canvas for measuring text width in the subtitle's actual font.
 const measureCanvas = document.createElement("canvas");
 const measureCtx = measureCanvas.getContext("2d")!;
@@ -200,7 +203,7 @@ export function createConversationBlock(
   const subtitle = el("div", { class: "conversation-subtitle" });
   applyCollapsedPath(subtitle, conversation.projectPath);
 
-  return el("div", { class: "conversation-block", "data-id": conversation.id }, [
+  const block = el("div", { class: "conversation-block", "data-id": conversation.id }, [
     title,
     subtitle,
     el("div", { class: "conversation-meta" }, [
@@ -211,4 +214,18 @@ export function createConversationBlock(
       tags,
     ]),
   ]);
+
+  // Click selects the conversation and broadcasts it so the canvas loads its
+  // trace. Clicks inside the kebab (menu/button) must not trigger selection.
+  block.addEventListener("click", (e) => {
+    if ((e.target as Element).closest(".conversation-kebab-wrap")) return;
+    if (selectedBlock && selectedBlock !== block) selectedBlock.classList.remove("selected");
+    block.classList.add("selected");
+    selectedBlock = block;
+    window.dispatchEvent(
+      new CustomEvent<Conversation>("conversation:select", { detail: conversation }),
+    );
+  });
+
+  return block;
 }

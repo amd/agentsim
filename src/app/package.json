@@ -15,7 +15,8 @@
     "app:icons": "tauri icon assets/icon/dark.png"
   },
   "dependencies": {
-    "@tauri-apps/api": "^2.1.1"
+    "@tauri-apps/api": "^2.1.1",
+    "vis-timeline": "^7.7.3"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.1.0",

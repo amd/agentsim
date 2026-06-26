@@ -1,0 +1,292 @@
+/* Timeline widget chrome. Everything is scoped under `.tlw` and uses classes
+   (no IDs) so multiple widgets can coexist in one page. Colors/radii/type come
+   from the Lemonade tokens (tokens.css) — never hardcode. */
+
+/* ---------- buttons (Lemonade .lm-btn subset used by the toolbar) ---------- */
+.lm-btn {
+  padding: 8px 20px;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-family: inherit;
+}
+.lm-btn-secondary {
+  background: transparent;
+  border: 1px solid var(--border-primary);
+  color: var(--text-secondary);
+}
+.lm-btn-secondary:hover {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border-color: var(--border-5);
+}
+.lm-btn-ghost {
+  background: transparent;
+  border: 1px solid var(--border-secondary);
+  color: var(--text-secondary);
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 400;
+  font-size: 0.8rem;
+  padding: 6px 10px;
+}
+.lm-btn-ghost:hover {
+  background: var(--bg-secondary);
+  border-color: var(--border-4);
+  color: var(--text-aaa);
+}
+
+.tlw {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  box-sizing: border-box;
+}
+.tlw *,
+.tlw *::before,
+.tlw *::after { box-sizing: border-box; }
+
+/* ---------- toolbar ---------- */
+.tlw-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-primary);
+}
+.tlw-sep { width: 1px; height: 22px; background: var(--border-primary); margin: 0 4px; }
+.tlw-zoom-btn {
+  padding: 8px 0;
+  width: 38px;
+  font-size: 1.1rem;
+  line-height: 1;
+  text-align: center;
+}
+.tlw .lm-btn.tlw-shrink-btn.is-active {
+  background: var(--lemon-amber);
+  border-color: var(--lemon-amber);
+  color: var(--bg-primary);
+}
+.tlw .lm-btn.tlw-shrink-btn.is-active:hover {
+  background: var(--lemon-amber);
+  border-color: var(--lemon-amber);
+  color: var(--bg-primary);
+}
+.tlw-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.tlw-field.is-disabled { opacity: 0.5; }
+.tlw-field-input {
+  width: 52px;
+  padding: 4px 6px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+  background: var(--bg-primary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+}
+.tlw-field-input:focus {
+  outline: none;
+  border-color: var(--lemon-amber);
+}
+.tlw-field-input:disabled {
+  cursor: not-allowed;
+  background: var(--bg-secondary);
+}
+.tlw-field-suffix { color: var(--text-secondary); }
+
+.tlw-hint { font-size: 12px; color: var(--text-secondary); }
+.tlw-hint + .tlw-hint::before { content: "·"; margin: 0 8px; color: var(--border-primary); }
+.tlw-theme-toggle { margin-left: auto; }
+
+/* ---------- timeline area ---------- */
+.tlw-timeline {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  background: var(--bg-primary);
+  padding: 8px 14px;
+}
+.tlw-timeline-panel {
+  width: 100%;
+  height: 100%;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+/* theme overrides for vis-timeline, scoped to this widget */
+.tlw .vis-timeline { border: none; font-family: inherit; }
+
+.tlw .vis-panel.vis-center,
+.tlw .vis-panel.vis-left,
+.tlw .vis-panel.vis-right,
+.tlw .vis-panel.vis-top,
+.tlw .vis-panel.vis-bottom { border-color: var(--border-primary); }
+
+.tlw .vis-time-axis .vis-text { color: var(--text-secondary); font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
+.tlw .vis-time-axis .vis-text.vis-major { color: var(--text-primary); font-weight: 600; }
+.tlw .vis-time-axis .vis-grid.vis-minor { border-color: var(--border-secondary); }
+.tlw .vis-time-axis .vis-grid.vis-major { border-color: var(--border-4); }
+
+.tlw .vis-labelset .vis-label,
+.tlw .vis-foreground .vis-group { border-color: var(--border-primary); }
+.tlw .vis-labelset .vis-label { color: var(--text-primary); }
+
+.tlw .vis-foreground .vis-group { background: var(--bg-tertiary); }
+
+/* clip items (bar fill is a data-driven accent color set inline) */
+.tlw .vis-item {
+  border-radius: var(--radius-md);
+  border-width: 1px;
+  color: #fff; /* text always sits on a saturated colored bar — theme-independent */
+  font-size: 12px;
+  font-weight: 600;
+}
+.tlw .vis-item .vis-item-content { padding: 4px 8px; }
+.tlw .vis-item.vis-selected {
+  box-shadow: 0 0 0 2px var(--lemon-amber) inset;
+  border-color: var(--lemon-amber);
+}
+
+/* merged "union" summary bar shown when a group is collapsed */
+.tlw .vis-item.summary { opacity: 0.95; }
+.tlw .vis-item.summary .vis-item-content { opacity: 0.85; }
+
+/* break markers: a red line through the chart at each collapse point, with the
+   from/to time chips lifted into the axis label band so they don't cover lanes.
+   Lines live in the center panel, chips in the top (axis) panel — both share the
+   same left origin, so one screen-x aligns them. */
+.tlw-break-lines,
+.tlw-break-labels {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.tlw-break-lines { z-index: 3; }
+.tlw-break-labels { z-index: 4; }
+.tlw-break-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--label-hot);
+  transform: translateX(-1px);
+}
+.tlw-break {
+  position: absolute;
+  top: 2px;
+}
+.tlw-break-label {
+  position: absolute;
+  top: 0;
+  font-size: 10px;
+  line-height: 1;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+  color: #fff;
+  background: var(--label-hot);
+  border-radius: var(--radius-sm);
+  padding: 2px 4px;
+  white-space: nowrap;
+}
+.tlw-break-from { right: 100%; margin-right: 2px; }
+.tlw-break-to { left: 100%; margin-left: 2px; }
+
+/* group/lane label bits */
+.tlw .vis-labelset .vis-label .tlw-muted { color: var(--text-secondary); font-weight: 400; }
+
+.tlw-toggle {
+  display: inline-block;
+  width: 14px;
+  margin-right: 4px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
+  text-align: center;
+}
+.tlw-toggle:hover { color: var(--text-primary); }
+
+.tlw-indent { display: inline-block; width: 18px; }
+
+.tlw-swatch {
+  display: inline-block;
+  width: 10px;
+  height: 16px;
+  border-radius: var(--radius-sm);
+  margin-right: 8px;
+  vertical-align: middle;
+}
+
+/* ---------- info panel ---------- */
+.tlw-info {
+  flex: 0 0 auto;
+  height: 150px;
+  background: var(--bg-primary);
+  border-top: 1px solid var(--border-primary);
+  padding: 8px 14px;
+}
+.tlw-info-panel {
+  width: 100%;
+  height: 100%;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-lg);
+  padding: 10px 12px;
+  overflow: auto;
+}
+.tlw-info-title { font-size: 14px; font-weight: 700; color: var(--text-primary); }
+.tlw-info-subtitle { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+.tlw-info-body { font-size: 12px; color: var(--text-tertiary); margin-top: 8px; line-height: 1.45; }
+
+/* ---------- miniature overview ---------- */
+.tlw-miniature {
+  flex: 0 0 auto;
+  height: 72px;
+  padding: 8px 14px;
+  background: var(--bg-primary);
+  border-top: 1px solid var(--border-primary);
+}
+.tlw-mini-content {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+.tlw-mini-clip {
+  position: absolute;
+  min-width: 2px;
+  border-radius: var(--radius-sm);
+  opacity: 0.85;
+  border: 1px solid var(--border-tertiary);
+}
+.tlw-mini-window {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  background: rgba(250, 204, 21, 0.16); /* lemon-amber tint, reads on both themes */
+  border: 1px solid var(--lemon-amber);
+  cursor: grab;
+}
+.tlw-mini-window:hover { background: rgba(250, 204, 21, 0.24); }
+.tlw-mini-window.dragging { cursor: grabbing; background: rgba(250, 204, 21, 0.28); }

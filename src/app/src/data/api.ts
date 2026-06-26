@@ -5,6 +5,7 @@
 import type { Conversation } from "./conversations.js";
 import type { Filters } from "../ui/FilterPanel.js";
 import { DAY_MS, startOfToday, type Section } from "./sections.js";
+import type { Span } from "../timeline/index.js";
 
 const BASE = "http://localhost:4317";
 
@@ -144,6 +145,22 @@ export async function fetchFacets(): Promise<Facets> {
   const res = await fetch(`${BASE}/sessions/facets`);
   if (!res.ok) throw new Error(`GET /sessions/facets failed: ${res.status}`);
   return (await res.json()) as Facets;
+}
+
+// Wire shape of SessionTrace. `spans` matches the widget's Span contract field
+// for field, so they're fed to the timeline natively (no adapter).
+interface WireTrace {
+  session_id: string;
+  spans: Span[];
+}
+
+// The full ordered span trace for one session, used to render the timeline.
+export async function fetchTrace(framework: string, sessionId: string): Promise<Span[]> {
+  const url = `${BASE}/frameworks/${encodeURIComponent(framework)}/sessions/${encodeURIComponent(sessionId)}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`GET ${url} failed: ${res.status}`);
+  const trace = (await res.json()) as WireTrace;
+  return trace.spans;
 }
 
 // --- Framework (data source) management ------------------------------------
