@@ -703,9 +703,17 @@ html, body {
 
 /* Panel heights as flex ratios (70/20/10). When a panel is hidden the visible
    ones redistribute the space automatically. */
-.canvas-section[data-panel="timeline"]           { flex: 7 1 0; }
+.canvas-timeline                                 { flex: 7 1 0; }
 .canvas-section[data-panel="block-info"]         { flex: 2 1 0; }
 .canvas-section[data-panel="timeline-miniature"] { flex: 1 1 0; }
+
+/* Primary workspace: hosts the timeline widget directly (no section chrome).
+   The widget adds `.tlw` (height:100%) to this element and fills it. */
+.canvas-timeline {
+    min-height: 0;
+    position: relative;
+    overflow: hidden;
+}
 
 .canvas-section {
     display: flex;
@@ -740,12 +748,6 @@ html, body {
 
 /* The timeline widget fills its mount (it is height:100%); drop the body padding
    and scrolling so it can own the full panel. */
-.canvas-section[data-panel="timeline"] .canvas-section-body {
-    padding: 0;
-    overflow: hidden;
-    position: relative;
-}
-
 /* The miniature is short (10% panel); trim its body padding so the overview
    has room. */
 .canvas-section[data-panel="timeline-miniature"] .canvas-section-body {
