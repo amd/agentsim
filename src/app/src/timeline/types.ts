@@ -84,4 +84,7 @@ export interface TimelineEventMap {
   select: SelectEventPayload;
   rangechange: RangeChangeEventPayload;
   togglesection: ToggleSectionEventPayload;
+  /** Lanes/positions changed (collapse, shrink, or new spans) — re-read the
+      miniature model. Emitted in addition to the more specific events. */
+  layoutchange: void;
 }

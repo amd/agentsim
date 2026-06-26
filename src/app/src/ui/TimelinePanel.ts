@@ -103,49 +103,61 @@ export function createTimelinePanel(
   resetInfo();
 
   // ---- host miniature -------------------------------------------------------
-  // Lanes by span type; bars positioned as a fraction of the total span. The
-  // viewport rectangle tracks the widget's visible window via `rangechange`.
-  // Fractions line up with the main axis while long-block shrink is off (the
-  // default); enabling shrink would compress the axis but not this overview.
-  // The host passes the bare miniature element directly (no section wrapper); we
-  // own its content class and seed the viewport rectangle into it.
+  // Driven entirely by the widget so it matches the main axis exactly: lanes,
+  // per-section palette colors, and collapse state come from `getMiniatureLanes`
+  // (one union lane per collapsed section, one per title-row when expanded), and
+  // every x-position runs through the widget's shrink-aware `posFraction`. We
+  // re-render lanes on `layoutchange` (collapse/shrink/new spans) and move the
+  // viewport rectangle on `rangechange`. The host passes the bare miniature
+  // element directly (no section wrapper); we own its content class.
   miniContent.classList.add("tl-mini-content");
   const miniWindow = el("div", { class: "tl-mini-window" });
   clear(miniContent);
   miniContent.append(miniWindow);
 
-  let totalMs = 0;
-  const pct = (ms: number) => (totalMs > 0 ? (ms / totalMs) * 100 : 0);
+  // Wheel over the miniature zooms the timeline, mirroring the main axis wheel
+  // (interactions.ts: deltaY < 0 -> zoom in). Both steps are 20%, so the feel
+  // matches. preventDefault stops the page from scrolling under the gesture.
+  miniContent.addEventListener(
+    "wheel",
+    (e) => {
+      if (!widget || e.shiftKey) return;
+      e.preventDefault();
+      if (e.deltaY < 0) widget.zoomIn();
+      else widget.zoomOut();
+    },
+    { passive: false },
+  );
 
-  const renderMiniature = (spans: Span[]) => {
+  const renderMiniature = () => {
     miniContent.querySelectorAll(".tl-mini-clip").forEach((n) => n.remove());
-    const firstMs = spans.length ? Math.min(...spans.map((s) => s.offset_start_ms)) : 0;
-    const lastMs = spans.length ? Math.max(...spans.map(spanEndMs)) : 0;
-    totalMs = Math.max(0, lastMs - firstMs);
-
-    // Lanes in first-seen type order.
-    const laneIndex = new Map<string, number>();
-    for (const s of spans) if (!laneIndex.has(s.type)) laneIndex.set(s.type, laneIndex.size);
-    const laneCount = laneIndex.size || 1;
-    const laneH = 100 / laneCount;
-
-    for (const s of spans) {
-      const left = pct(s.offset_start_ms - firstMs);
-      const right = pct(spanEndMs(s) - firstMs);
-      const li = laneIndex.get(s.type) ?? 0;
-      const bar = el("div", { class: "tl-mini-clip" });
-      bar.style.left = `${left}%`;
-      bar.style.width = `${Math.max(0.4, right - left)}%`;
-      bar.style.top = `${li * laneH}%`;
-      bar.style.height = `${laneH}%`;
-      miniContent.insertBefore(bar, miniWindow);
-    }
-    updateMiniWindow(firstMs, lastMs);
+    if (!widget) return;
+    const lanes = widget.getMiniatureLanes();
+    const laneH = lanes.length ? 100 / lanes.length : 100;
+    lanes.forEach((lane, li) => {
+      for (const [s, e] of lane.clips) {
+        const left = widget!.posFraction(s) * 100;
+        const right = widget!.posFraction(e) * 100;
+        const bar = el("div", { class: "tl-mini-clip" });
+        bar.style.left = `${left}%`;
+        bar.style.width = `${Math.max(0.4, right - left)}%`;
+        bar.style.top = `${li * laneH}%`;
+        bar.style.height = `${laneH}%`;
+        bar.style.backgroundColor = lane.color;
+        miniContent.insertBefore(bar, miniWindow);
+      }
+    });
+    updateMiniWindow();
   };
 
-  const updateMiniWindow = (startMs: number, endMs: number) => {
-    const left = Math.max(0, pct(startMs));
-    const right = Math.min(100, pct(endMs));
+  const updateMiniWindow = () => {
+    if (!widget) {
+      miniWindow.style.width = "0%";
+      return;
+    }
+    const { startMs, endMs } = widget.getWindow();
+    const left = Math.max(0, widget.posFraction(startMs) * 100);
+    const right = Math.min(100, widget.posFraction(endMs) * 100);
     miniWindow.style.left = `${left}%`;
     miniWindow.style.width = `${Math.max(0, right - left)}%`;
   };
@@ -178,7 +190,7 @@ export function createTimelinePanel(
       clear(timelineBody);
       timelineBody.append(el("div", { class: "tl-state", text: "No spans in this session." }));
       miniContent.querySelectorAll(".tl-mini-clip").forEach((n) => n.remove());
-      updateMiniWindow(0, 0);
+      updateMiniWindow();
       return;
     }
 
@@ -192,11 +204,12 @@ export function createTimelinePanel(
         collapseToSec: shrinkToSec,
       });
       widget.on("select", showInfo);
-      widget.on("rangechange", (r) => updateMiniWindow(r.startMs, r.endMs));
+      widget.on("rangechange", () => updateMiniWindow());
+      widget.on("layoutchange", () => renderMiniature());
     } else {
       widget.setSpans(spans);
     }
-    renderMiniature(spans);
+    renderMiniature();
   };
 
   return { showTrace };

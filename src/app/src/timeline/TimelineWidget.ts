@@ -6,6 +6,7 @@ import {
   buildItems,
   deriveSections,
   miniatureLanes,
+  type MiniLane,
   type VisItem,
 } from "./core/buildVisData";
 import { dateToMs, formatAxisLabel, formatTimecode, msToDate } from "./core/time";
@@ -166,6 +167,28 @@ export class TimelineWidget {
     return this.emitter.on(event, cb);
   }
 
+  /** Lane model for an external miniature, reflecting the live collapse state:
+      one union lane per collapsed section, one lane per title-row when expanded.
+      Same data the built-in miniature renders. Pair with `posFraction` for x. */
+  getMiniatureLanes(): MiniLane[] {
+    return miniatureLanes(this.sections, this.collapsed);
+  }
+
+  /** Real ms → fraction [0..1] of the compressed (on-screen) width. Shrink-aware
+      (folded ranges removed), so it lines up with the rendered axis and items. */
+  posFraction(ms: number): number {
+    return this.projection.posFraction(ms);
+  }
+
+  /** Current visible window in REAL ms (the public coordinate). */
+  getWindow(): { startMs: number; endMs: number } {
+    return this.windowMs();
+  }
+
+  private emitLayout(): void {
+    this.emitter.emit("layoutchange", undefined);
+  }
+
   fit(): void {
     // The whole timeline in compressed space is [0, totalCompressedMs].
     this.timeline.setWindow(
@@ -281,6 +304,7 @@ export class TimelineWidget {
     this.miniature?.renderLanes();
     this.miniature?.updateWindow();
     this.breakMarkers?.render();
+    this.emitLayout();
   }
 
   /** Point the pan/zoom clamps at the current compressed extent `[0, total]`. */
@@ -309,6 +333,7 @@ export class TimelineWidget {
       type,
       collapsed: this.collapsed[type],
     });
+    this.emitLayout();
   }
 
   /** Replace the span stream and re-render in place. */
@@ -328,6 +353,7 @@ export class TimelineWidget {
     this.miniature?.updateWindow();
     this.breakMarkers?.render();
     this.infoPanel?.reset();
+    this.emitLayout();
   }
 
   destroy(): void {
@@ -540,5 +566,6 @@ export class TimelineWidget {
     this.renderGroups();
     this.view.refresh();
     this.miniature?.renderLanes();
+    this.emitLayout();
   }
 }

@@ -7,4 +7,5 @@ import "./styles/tokens.css";
 import "./styles/widget.css";
 
 export { TimelineWidget } from "./TimelineWidget";
+export type { MiniLane } from "./core/buildVisData";
 export * from "./types";
