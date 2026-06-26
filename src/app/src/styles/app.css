@@ -801,5 +801,7 @@ html, body {
     background: rgba(250, 204, 21, 0.16); /* lemon-amber tint, matches the widget */
     border: 1px solid var(--lemon-amber);
     border-radius: 2px;
-    pointer-events: none;
+    cursor: grab;
 }
+.tl-mini-window:hover { background: rgba(250, 204, 21, 0.24); }
+.tl-mini-window.dragging { cursor: grabbing; background: rgba(250, 204, 21, 0.28); }

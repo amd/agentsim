@@ -185,6 +185,13 @@ export class TimelineWidget {
     return this.windowMs();
   }
 
+  /** Pan so the visible window begins at compressed fraction `f`, preserving its
+      on-screen width. Lets an external miniature drive drag-to-pan, same as the
+      built-in one. */
+  panToFraction(f: number): void {
+    this.panToStartFraction(f);
+  }
+
   private emitLayout(): void {
     this.emitter.emit("layoutchange", undefined);
   }

@@ -150,6 +150,34 @@ export function createTimelinePanel(
     updateMiniWindow();
   };
 
+  // Drag the viewport rectangle to pan the timeline (horizontal only), mirroring
+  // the widget's built-in Miniature: capture the start fraction on mousedown,
+  // then pan to start + cursor delta as a fraction of the content width.
+  let dragging = false;
+  let dragStartX = 0;
+  let dragStartFraction = 0;
+  miniWindow.addEventListener("mousedown", (ev) => {
+    if (!widget) return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    dragging = true;
+    dragStartX = ev.clientX;
+    dragStartFraction = widget.posFraction(widget.getWindow().startMs);
+    miniWindow.classList.add("dragging");
+  });
+  window.addEventListener("mousemove", (ev) => {
+    if (!dragging || !widget) return;
+    const widthPx = miniContent.getBoundingClientRect().width;
+    if (widthPx <= 0) return;
+    const deltaFraction = (ev.clientX - dragStartX) / widthPx;
+    widget.panToFraction(dragStartFraction + deltaFraction);
+  });
+  window.addEventListener("mouseup", () => {
+    if (!dragging) return;
+    dragging = false;
+    miniWindow.classList.remove("dragging");
+  });
+
   const updateMiniWindow = () => {
     if (!widget) {
       miniWindow.style.width = "0%";
