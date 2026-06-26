@@ -22,9 +22,20 @@ export interface MenuHeader {
   header: string;
 }
 
-// A menu item is a selectable option, a checkbox toggle, a section header, or a
-// "divider" that splits the dropdown into sections.
-export type MenuItem = MenuOption | MenuCheckbox | MenuHeader | "divider";
+// An inline numeric field: a label, a `<input type=number>`, and a unit suffix.
+// Commits on change/Enter; the dropdown stays open while editing.
+export interface MenuNumber {
+  numberLabel: string;
+  value: number;
+  min?: number;
+  suffix?: string;
+  wip?: boolean;
+  onChange: (next: number) => void;
+}
+
+// A menu item is a selectable option, a checkbox toggle, a number field, a
+// section header, or a "divider" that splits the dropdown into sections.
+export type MenuItem = MenuOption | MenuCheckbox | MenuNumber | MenuHeader | "divider";
 
 export interface Menu {
   label: string;
@@ -69,6 +80,62 @@ const viewToggle = (name: string, event: string, checked: boolean): MenuCheckbox
   return item;
 };
 
+// Fire-and-forget timeline command: broadcasts a CustomEvent that the timeline
+// controller (TimelinePanel) listens for and forwards to the widget.
+const timelineAction = (event: string) => () => window.dispatchEvent(new CustomEvent(event));
+
+// Long-block shrink toggle: broadcasts its on/off state to the timeline
+// controller. Holds its own checked state like the other menu checkboxes.
+const shrinkToggle = (): MenuCheckbox => {
+  const item: MenuCheckbox = {
+    label: "Shrink Long Blocks",
+    checked: false,
+    onToggle: (next) => {
+      item.checked = next;
+      window.dispatchEvent(new CustomEvent("timeline:shrink", { detail: { on: next } }));
+    },
+  };
+  return item;
+};
+
+// The two shrink-duration fields. They share state: "to" can't exceed "longer
+// than" (a block can't shrink to more than its own fold threshold). Each field
+// holds its own value (so a reopened dropdown shows the applied value) and
+// broadcasts the combined params to the timeline controller, which forwards them
+// to the widget. Mirrors the widget defaults (10s threshold, 2s collapse-to).
+const shrinkThresholdField: MenuNumber = {
+  numberLabel: "Longer than",
+  value: 10,
+  min: 5,
+  suffix: "sec",
+  onChange: () => {},
+};
+const shrinkToField: MenuNumber = {
+  numberLabel: "To",
+  value: 2,
+  min: 1,
+  suffix: "sec",
+  onChange: () => {},
+};
+const emitShrinkParams = () =>
+  window.dispatchEvent(
+    new CustomEvent("timeline:shrink-params", {
+      detail: { thresholdSec: shrinkThresholdField.value, collapseToSec: shrinkToField.value },
+    }),
+  );
+shrinkThresholdField.onChange = (v) => {
+  shrinkThresholdField.value = Math.max(5, v);
+  if (shrinkToField.value > shrinkThresholdField.value)
+    shrinkToField.value = shrinkThresholdField.value;
+  emitShrinkParams();
+};
+shrinkToField.onChange = (v) => {
+  shrinkToField.value = Math.max(1, v);
+  if (shrinkToField.value > shrinkThresholdField.value)
+    shrinkThresholdField.value = shrinkToField.value;
+  emitShrinkParams();
+};
+
 export const menus: Menu[] = [
   {
     label: "File",
@@ -97,11 +164,14 @@ export const menus: Menu[] = [
       viewToggle("Show Timeline Miniature", "view:timeline-miniature", true),
       "divider",
       { header: "Timeline" },
-      { label: "Zoom In", onSelect: placeholder("View > Zoom In") },
-      { label: "Zoom Out", onSelect: placeholder("View > Zoom Out") },
-      { label: "Fit", onSelect: placeholder("View > Fit") },
-      { label: "Expand All", onSelect: placeholder("View > Expand All") },
-      { label: "Collapse All", onSelect: placeholder("View > Collapse All") },
+      { label: "Zoom In", onSelect: timelineAction("timeline:zoom-in") },
+      { label: "Zoom Out", onSelect: timelineAction("timeline:zoom-out") },
+      { label: "Fit", onSelect: timelineAction("timeline:fit") },
+      { label: "Expand All", onSelect: timelineAction("timeline:expand-all") },
+      { label: "Collapse All", onSelect: timelineAction("timeline:collapse-all") },
+      shrinkToggle(),
+      shrinkThresholdField,
+      shrinkToField,
       wip(checkbox("Show Token Usage", true)),
     ],
   },

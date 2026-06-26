@@ -74,6 +74,41 @@ export function createMenuBar(menus: Menu[]): HTMLElement {
     // Section header: a non-interactive caption for the items beneath it.
     if ("header" in option) return el("div", { class: "menu-header", text: option.header });
 
+    // Number field: label + <input type=number> + unit. Editing must not close
+    // the dropdown, and the input reflects any clamping the handler applies.
+    if ("numberLabel" in option) {
+      const input = el("input", {
+        class: "menu-number-input",
+        type: "number",
+        value: String(option.value),
+      }) as HTMLInputElement;
+      if (option.min !== undefined) input.min = String(option.min);
+
+      const item = el("div", { class: "item menu-number" }, [
+        el("span", { text: option.numberLabel }),
+        el("span", { class: "menu-number-field" }, [
+          input,
+          option.suffix ? el("span", { class: "menu-number-suffix", text: option.suffix }) : null,
+        ]),
+      ]);
+
+      if (option.wip) markWip(item);
+      else {
+        item.addEventListener("click", (e) => e.stopPropagation());
+        const commit = () => {
+          const v = Number(input.value);
+          if (!Number.isFinite(v)) return;
+          option.onChange(v);
+          input.value = String(option.value);
+        };
+        input.addEventListener("change", commit);
+        input.addEventListener("keydown", (e) => {
+          if (e.key === "Enter") commit();
+        });
+      }
+      return item;
+    }
+
     // Checkbox: leading "✓" when checked; click toggles and closes the menu.
     if ("onToggle" in option) {
       const item = el("div", { class: "item" }, [

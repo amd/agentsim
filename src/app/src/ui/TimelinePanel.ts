@@ -4,11 +4,13 @@ import { fetchTrace } from "../data/api.js";
 import type { Conversation } from "../data/conversations.js";
 
 // Controller that owns the timeline widget and drives the host's three canvas
-// panels: the widget renders in the primary `timeline` panel (toolbar only),
-// while this module renders the selected-span details into `block-info` and a
-// lightweight overview into `timeline-miniature` from the fetched spans. The
-// widget's own infoPanel/miniature are disabled because they can only mount
-// inside the widget; we wire its `select`/`rangechange` events to host panels.
+// panels: the widget renders bare in the primary `timeline` panel, while this
+// module renders the selected-span details into `block-info` and a lightweight
+// overview into `timeline-miniature` from the fetched spans. The widget's own
+// toolbar/infoPanel/miniature are all disabled — controls live in the View →
+// Timeline menu (forwarded via window events), and info/miniature can only
+// mount inside the widget; we wire its `select`/`rangechange` events to host
+// panels instead.
 
 const spanEndMs = (s: Span): number => {
   if (s.offset_end != null) return s.offset_end;
@@ -44,6 +46,24 @@ export function createTimelinePanel(
 ): TimelinePanel {
   let widget: TimelineWidget | null = null;
   let requestSeq = 0;
+
+  // Timeline controls live in the View → Timeline menu, not the widget's own
+  // toolbar (which is disabled below). The menu broadcasts these commands; we
+  // forward them to the live widget, or ignore them when none is loaded.
+  window.addEventListener("timeline:zoom-in", () => widget?.zoomIn());
+  window.addEventListener("timeline:zoom-out", () => widget?.zoomOut());
+  window.addEventListener("timeline:fit", () => widget?.fit());
+  window.addEventListener("timeline:expand-all", () => widget?.expandAll());
+  window.addEventListener("timeline:collapse-all", () => widget?.collapseAll());
+  window.addEventListener("timeline:shrink", (e) =>
+    widget?.setShrinkLongBlocks((e as CustomEvent<{ on: boolean }>).detail.on),
+  );
+  window.addEventListener("timeline:shrink-params", (e) => {
+    const { thresholdSec, collapseToSec } = (
+      e as CustomEvent<{ thresholdSec: number; collapseToSec: number }>
+    ).detail;
+    widget?.setShrinkParams(thresholdSec, collapseToSec);
+  });
 
   // ---- block-info panel -----------------------------------------------------
   const infoTitle = el("div", { class: "tl-info-title" });
@@ -155,7 +175,7 @@ export function createTimelinePanel(
       clear(timelineBody);
       widget = new TimelineWidget(timelineBody, {
         spans,
-        features: { toolbar: true, infoPanel: false, miniature: false },
+        features: { toolbar: false, infoPanel: false, miniature: false },
       });
       widget.on("select", showInfo);
       widget.on("rangechange", (r) => updateMiniWindow(r.startMs, r.endMs));

@@ -227,6 +227,27 @@ html, body {
     transform: translateY(-50%);
 }
 
+/* Numeric menu rows (e.g. timeline shrink durations): label on the left, a
+   compact number input + unit on the right. Editing keeps the dropdown open. */
+.lm-menu .item.menu-number { cursor: default; }
+.lm-menu .item.menu-number:hover { background: transparent; }
+.menu-number-field { display: flex; align-items: center; gap: 4px; margin-left: 20px; }
+.menu-number-input {
+    width: 48px;
+    padding: 2px 6px;
+    font-size: 0.78rem;
+    color: var(--text-primary);
+    background: var(--bg-primary);
+    border: 1px solid var(--border-primary);
+    border-radius: var(--radius-sm);
+    text-align: right;
+}
+.menu-number-input:focus {
+    outline: none;
+    border-color: var(--lemon-yellow);
+}
+.menu-number-suffix { font-size: 0.72rem; color: var(--text-secondary); }
+
 /* Filter "miniature" — floating panel anchored to the filter icon. */
 .filter-popover {
     position: absolute;
