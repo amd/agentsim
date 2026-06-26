@@ -30,6 +30,7 @@ export interface MenuNumber {
   min?: number;
   suffix?: string;
   wip?: boolean;
+  disabled?: boolean; // grayed out + non-editable (no tooltip, unlike wip)
   onChange: (next: number) => void;
 }
 
@@ -84,35 +85,21 @@ const viewToggle = (name: string, event: string, checked: boolean): MenuCheckbox
 // controller (TimelinePanel) listens for and forwards to the widget.
 const timelineAction = (event: string) => () => window.dispatchEvent(new CustomEvent(event));
 
-// Long-block shrink toggle: broadcasts its on/off state to the timeline
-// controller. Holds its own checked state like the other menu checkboxes.
-const shrinkToggle = (): MenuCheckbox => {
-  const item: MenuCheckbox = {
-    label: "Shrink Long Blocks",
-    checked: false,
-    onToggle: (next) => {
-      item.checked = next;
-      window.dispatchEvent(new CustomEvent("timeline:shrink", { detail: { on: next } }));
-    },
-  };
-  return item;
-};
-
 // The two shrink-duration fields. They share state: "to" can't exceed "longer
 // than" (a block can't shrink to more than its own fold threshold). Each field
 // holds its own value (so a reopened dropdown shows the applied value) and
 // broadcasts the combined params to the timeline controller, which forwards them
-// to the widget. Mirrors the widget defaults (10s threshold, 2s collapse-to).
+// to the widget. Grayed out until shrink is enabled (see shrinkToggle below).
 const shrinkThresholdField: MenuNumber = {
   numberLabel: "Longer than",
-  value: 10,
+  value: 600,
   min: 5,
   suffix: "sec",
   onChange: () => {},
 };
 const shrinkToField: MenuNumber = {
   numberLabel: "To",
-  value: 2,
+  value: 60,
   min: 1,
   suffix: "sec",
   onChange: () => {},
@@ -134,6 +121,23 @@ shrinkToField.onChange = (v) => {
   if (shrinkToField.value > shrinkThresholdField.value)
     shrinkThresholdField.value = shrinkToField.value;
   emitShrinkParams();
+};
+
+// Long-block shrink toggle: broadcasts its on/off state to the timeline
+// controller and enables/disables the two duration fields to match. Holds its
+// own checked state like the other menu checkboxes. When turning on, it first
+// pushes the current field values so the widget folds at 600s→60s (its built-in
+// defaults differ) rather than whatever it was last constructed with.
+const shrinkToggleItem: MenuCheckbox = {
+  label: "Shrink Long Blocks",
+  checked: true,
+  onToggle: (next) => {
+    shrinkToggleItem.checked = next;
+    shrinkThresholdField.disabled = !next;
+    shrinkToField.disabled = !next;
+    if (next) emitShrinkParams();
+    window.dispatchEvent(new CustomEvent("timeline:shrink", { detail: { on: next } }));
+  },
 };
 
 export const menus: Menu[] = [
@@ -162,16 +166,22 @@ export const menus: Menu[] = [
       viewToggle("Show Sessions", "view:sessions", true),
       viewToggle("Show Block Explorer", "view:block-info", true),
       viewToggle("Show Timeline Miniature", "view:timeline-miniature", true),
-      "divider",
-      { header: "Timeline" },
+    ],
+  },
+  {
+    label: "Timeline",
+    options: [
       { label: "Zoom In", onSelect: timelineAction("timeline:zoom-in") },
       { label: "Zoom Out", onSelect: timelineAction("timeline:zoom-out") },
       { label: "Fit", onSelect: timelineAction("timeline:fit") },
+      "divider",
       { label: "Expand All", onSelect: timelineAction("timeline:expand-all") },
       { label: "Collapse All", onSelect: timelineAction("timeline:collapse-all") },
-      shrinkToggle(),
+      "divider",
+      shrinkToggleItem,
       shrinkThresholdField,
       shrinkToField,
+      "divider",
       wip(checkbox("Show Token Usage", true)),
     ],
   },

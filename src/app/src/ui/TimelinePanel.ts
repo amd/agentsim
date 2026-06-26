@@ -47,21 +47,31 @@ export function createTimelinePanel(
   let widget: TimelineWidget | null = null;
   let requestSeq = 0;
 
-  // Timeline controls live in the View → Timeline menu, not the widget's own
-  // toolbar (which is disabled below). The menu broadcasts these commands; we
-  // forward them to the live widget, or ignore them when none is loaded.
+  // Live shrink state, kept in sync with the Timeline menu so a widget built for
+  // a newly selected conversation starts with the same fold settings. Defaults
+  // match the menu (on, fold blocks >600s down to 60s).
+  let shrinkOn = true;
+  let shrinkThresholdSec = 600;
+  let shrinkToSec = 60;
+
+  // Timeline controls live in the Timeline menu, not the widget's own toolbar
+  // (which is disabled below). The menu broadcasts these commands; we forward
+  // them to the live widget, or ignore them when none is loaded.
   window.addEventListener("timeline:zoom-in", () => widget?.zoomIn());
   window.addEventListener("timeline:zoom-out", () => widget?.zoomOut());
   window.addEventListener("timeline:fit", () => widget?.fit());
   window.addEventListener("timeline:expand-all", () => widget?.expandAll());
   window.addEventListener("timeline:collapse-all", () => widget?.collapseAll());
-  window.addEventListener("timeline:shrink", (e) =>
-    widget?.setShrinkLongBlocks((e as CustomEvent<{ on: boolean }>).detail.on),
-  );
+  window.addEventListener("timeline:shrink", (e) => {
+    shrinkOn = (e as CustomEvent<{ on: boolean }>).detail.on;
+    widget?.setShrinkLongBlocks(shrinkOn);
+  });
   window.addEventListener("timeline:shrink-params", (e) => {
     const { thresholdSec, collapseToSec } = (
       e as CustomEvent<{ thresholdSec: number; collapseToSec: number }>
     ).detail;
+    shrinkThresholdSec = thresholdSec;
+    shrinkToSec = collapseToSec;
     widget?.setShrinkParams(thresholdSec, collapseToSec);
   });
 
@@ -176,6 +186,9 @@ export function createTimelinePanel(
       widget = new TimelineWidget(timelineBody, {
         spans,
         features: { toolbar: false, infoPanel: false, miniature: false },
+        collapseLongBlocks: shrinkOn,
+        collapseThresholdSec: shrinkThresholdSec,
+        collapseToSec: shrinkToSec,
       });
       widget.on("select", showInfo);
       widget.on("rangechange", (r) => updateMiniWindow(r.startMs, r.endMs));

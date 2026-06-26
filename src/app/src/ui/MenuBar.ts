@@ -93,7 +93,11 @@ export function createMenuBar(menus: Menu[]): HTMLElement {
       ]);
 
       if (option.wip) markWip(item);
-      else {
+      else if (option.disabled) {
+        item.classList.add("disabled");
+        input.disabled = true;
+        item.addEventListener("click", (e) => e.stopPropagation());
+      } else {
         item.addEventListener("click", (e) => e.stopPropagation());
         const commit = () => {
           const v = Number(input.value);
