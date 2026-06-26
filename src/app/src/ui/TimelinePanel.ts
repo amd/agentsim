@@ -41,7 +41,6 @@ export interface TimelinePanel {
 
 export function createTimelinePanel(
   timelineBody: HTMLElement,
-  infoBody: HTMLElement,
   miniContent: HTMLElement,
 ): TimelinePanel {
   let widget: TimelineWidget | null = null;
@@ -75,32 +74,65 @@ export function createTimelinePanel(
     widget?.setShrinkParams(thresholdSec, collapseToSec);
   });
 
-  // ---- block-info panel -----------------------------------------------------
-  const infoTitle = el("div", { class: "tl-info-title" });
-  const infoSubtitle = el("div", { class: "tl-info-subtitle" });
-  const infoContent = el("div", { class: "tl-info-content" });
-  const resetInfo = () => {
-    infoTitle.textContent = "No span selected";
-    infoSubtitle.textContent = "";
-    infoContent.textContent = "Click a span to see its details.";
-  };
+  // ---- block-info popup -----------------------------------------------------
+  // Clicking a span opens a modal (same overlay/chrome as Manage Data Sources)
+  // with the selected span's details; only one is open at a time.
+  let closeInfo: (() => void) | null = null;
+
   const showInfo = (p: SelectEventPayload) => {
+    closeInfo?.();
     const { type, span, merged, startMs, endMs } = p;
     const duration = span ? spanDurationMs(span) : Math.max(0, endMs - startMs);
     const timing = `${formatClock(startMs)} → ${formatClock(endMs)} · ${duration} ms`;
+
+    let title: string;
+    let subtitle: string;
+    let content: string;
     if (merged || !span) {
-      infoTitle.textContent = `${prettyType(type)} · merged`;
-      infoSubtitle.textContent = `${timing} (union of overlapping spans)`;
-      infoContent.textContent = "Merged coverage of overlapping spans in this section.";
-      return;
+      title = `${prettyType(type)} · merged`;
+      subtitle = `${timing} (union of overlapping spans)`;
+      content = "Merged coverage of overlapping spans in this section.";
+    } else {
+      title = span.title;
+      subtitle = `${prettyType(type)} · ${timing}`;
+      content = span.content?.trim() ? span.content : "(no content)";
     }
-    infoTitle.textContent = span.title;
-    infoSubtitle.textContent = `${prettyType(type)} · ${timing}`;
-    infoContent.textContent = span.content?.trim() ? span.content : "(no content)";
+
+    const closeBtn = el("button", {
+      class: "lm-icon-btn ds-close",
+      "aria-label": "Close",
+      text: "✕",
+    });
+    const modal = el("div", { class: "ds-modal tl-info-modal" }, [
+      el("div", { class: "ds-header" }, [
+        el("h3", { class: "ds-title", text: "Block Info" }),
+        closeBtn,
+      ]),
+      el("div", { class: "ds-body" }, [
+        el("div", { class: "tl-info-title", text: title }),
+        el("div", { class: "tl-info-subtitle", text: subtitle }),
+        el("div", { class: "tl-info-content", text: content }),
+      ]),
+    ]);
+    const overlay = el("div", { class: "ds-overlay" }, [modal]);
+
+    const close = () => {
+      overlay.remove();
+      document.removeEventListener("keydown", onKey);
+      closeInfo = null;
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") close();
+    };
+    closeBtn.addEventListener("click", close);
+    overlay.addEventListener("click", (e) => {
+      if (e.target === overlay) close();
+    });
+    document.addEventListener("keydown", onKey);
+    closeInfo = close;
+
+    document.body.append(overlay);
   };
-  clear(infoBody);
-  infoBody.append(el("div", { class: "tl-info" }, [infoTitle, infoSubtitle, infoContent]));
-  resetInfo();
 
   // ---- host miniature -------------------------------------------------------
   // Driven entirely by the widget so it matches the main axis exactly: lanes,
@@ -193,7 +225,7 @@ export function createTimelinePanel(
   // ---- load + render --------------------------------------------------------
   const showTrace = async (conversation: Conversation): Promise<void> => {
     const seq = ++requestSeq;
-    resetInfo();
+    closeInfo?.();
     if (!widget) {
       clear(timelineBody);
       timelineBody.append(el("div", { class: "tl-state", text: "Loading…" }));

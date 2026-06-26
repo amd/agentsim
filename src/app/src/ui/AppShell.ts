@@ -21,14 +21,12 @@ export function createAppShell(): HTMLElement {
     if (target) target.style.display = visible ? "" : "none";
   };
 
-  const blockInfo = canvas.querySelector<HTMLElement>('[data-panel="block-info"]');
   const miniature = canvas.querySelector<HTMLElement>('[data-panel="timeline-miniature"]');
 
   const onToggle = (target: HTMLElement | null) => (e: Event) =>
     setVisible(target, (e as CustomEvent<{ visible: boolean }>).detail.visible);
 
   window.addEventListener("view:sessions", onToggle(sidebar));
-  window.addEventListener("view:block-info", onToggle(blockInfo));
   window.addEventListener("view:timeline-miniature", onToggle(miniature));
 
   window.addEventListener("file:manage-data-sources", () => openDataSourcesModal());

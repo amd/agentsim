@@ -164,7 +164,6 @@ export const menus: Menu[] = [
     label: "View",
     options: [
       viewToggle("Show Sessions", "view:sessions", true),
-      viewToggle("Show Block Explorer", "view:block-info", true),
       viewToggle("Show Timeline Miniature", "view:timeline-miniature", true),
     ],
   },

@@ -704,7 +704,6 @@ html, body {
 /* Panel heights as flex ratios (70/20/10). When a panel is hidden the visible
    ones redistribute the space automatically. */
 .canvas-timeline                                 { flex: 7 1 0; }
-.canvas-section[data-panel="block-info"]         { flex: 2 1 0; }
 .tl-mini-content                                 { flex: 1 1 0; }
 
 /* Primary workspace: hosts the timeline widget directly (no section chrome).
@@ -754,12 +753,8 @@ html, body {
     color: var(--text-secondary);
 }
 
-/* --- block-info panel (selected span details) --------------------------- */
-.tl-info {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
+/* --- block-info popup (selected span details) --------------------------- */
+.tl-info-modal { width: 520px; }
 .tl-info-title {
     font-weight: 600;
     color: var(--text-primary);
