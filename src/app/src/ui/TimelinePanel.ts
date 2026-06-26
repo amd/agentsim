@@ -42,7 +42,7 @@ export interface TimelinePanel {
 export function createTimelinePanel(
   timelineBody: HTMLElement,
   infoBody: HTMLElement,
-  miniBody: HTMLElement,
+  miniContent: HTMLElement,
 ): TimelinePanel {
   let widget: TimelineWidget | null = null;
   let requestSeq = 0;
@@ -107,11 +107,12 @@ export function createTimelinePanel(
   // viewport rectangle tracks the widget's visible window via `rangechange`.
   // Fractions line up with the main axis while long-block shrink is off (the
   // default); enabling shrink would compress the axis but not this overview.
-  const miniContent = el("div", { class: "tl-mini-content" });
+  // The host passes the bare miniature element directly (no section wrapper); we
+  // own its content class and seed the viewport rectangle into it.
+  miniContent.classList.add("tl-mini-content");
   const miniWindow = el("div", { class: "tl-mini-window" });
+  clear(miniContent);
   miniContent.append(miniWindow);
-  clear(miniBody);
-  miniBody.append(miniContent);
 
   let totalMs = 0;
   const pct = (ms: number) => (totalMs > 0 ? (ms / totalMs) * 100 : 0);
