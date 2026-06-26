@@ -714,6 +714,10 @@ html, body {
     overflow: hidden;
 }
 
+/* Sit the timeline flush against the canvas edges — drop the widget's internal
+   panel padding so the vis chart fills the mount with no inset frame. */
+.canvas-timeline.tlw .tlw-timeline { padding: 0; }
+
 /* Drop the per-block border: zoomed out, narrow blocks collapse to just their
    border color. Selection still reads via its inset box-shadow. */
 .canvas-timeline.tlw .vis-item { border-width: 0; }
