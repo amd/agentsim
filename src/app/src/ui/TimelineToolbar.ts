@@ -31,14 +31,14 @@ const sep = (): HTMLElement => el("span", { class: "tl-tb-sep" });
 
 export function createTimelineToolbar(): HTMLElement {
   // ---- fold controls --------------------------------------------------------
-  // Two independent toggles (long blocks, empty regions) share one pair of
-  // numeric fields. The fields share clamping rules: threshold >= 5s, "to" >= 1s,
-  // and "to" can never exceed the threshold (a stretch can't fold to more than
-  // its own length). Corrected values are written back so the inputs always show
-  // what is actually applied, then broadcast as a combined params event. Defaults
-  // mirror the controller: both long-block shrink and empty-region collapse on.
-  let shrinkOn = true;
-  let emptyOn = true;
+  // One front-end toggle ("Shrink Long Regions") drives BOTH backend folds at
+  // once — long blocks and empty regions — so the user sees a single control.
+  // They share one pair of numeric fields with clamping rules: threshold >= 5s,
+  // "to" >= 1s, and "to" can never exceed the threshold (a stretch can't fold to
+  // more than its own length). Corrected values are written back so the inputs
+  // always show what is applied, then broadcast as a combined params event.
+  // Default on, matching the controller.
+  let foldOn = true;
 
   const thresholdInput = el("input", {
     class: "tl-tb-num",
@@ -84,63 +84,38 @@ export function createTimelineToolbar(): HTMLElement {
       el("span", { class: "tl-tb-field-suffix", text: "sec" }),
     ]);
 
-  const thresholdField = field("Longer than", thresholdInput);
-  const toField = field("To", toInput);
+  const thresholdField = field("longer than", thresholdInput);
+  const toField = field("to", toInput);
 
-  // Fields are live while EITHER fold is on (both share these params).
+  // Fields are live while the fold is on (both backends share these params).
   const syncFieldsDisabled = () => {
-    const off = !(shrinkOn || emptyOn);
+    const off = !foldOn;
     thresholdInput.disabled = off;
     toInput.disabled = off;
     thresholdField.classList.toggle("is-disabled", off);
     toField.classList.toggle("is-disabled", off);
   };
 
-  // A fold toggle: flips its own state, reflects the pressed look, syncs the
-  // shared fields, and broadcasts its on/off event. On enable it re-pushes the
-  // current params so the widget folds at the field values rather than whatever
-  // it was last constructed with.
-  const foldToggle = (
-    label: string,
-    event: string,
-    initial: boolean,
-    set: (on: boolean) => void,
-    title: string,
-  ): HTMLButtonElement => {
-    const btn = el("button", {
-      class: `tl-tb-btn tl-tb-toggle${initial ? " is-active" : ""}`,
-      type: "button",
-      text: label,
-      "aria-pressed": String(initial),
-      title,
-    }) as HTMLButtonElement;
-    let on = initial;
-    btn.addEventListener("click", () => {
-      on = !on;
-      set(on);
-      btn.classList.toggle("is-active", on);
-      btn.setAttribute("aria-pressed", String(on));
-      syncFieldsDisabled();
-      if (on) emitParams();
-      emit(event, { on });
-    });
-    return btn;
-  };
-
-  const shrinkBtn = foldToggle(
-    "Shrink Long Blocks",
-    "timeline:shrink",
-    shrinkOn,
-    (on) => (shrinkOn = on),
-    "Compress blocks longer than the threshold",
-  );
-  const emptyBtn = foldToggle(
-    "Collapse Empty Regions",
-    "timeline:collapse-empty",
-    emptyOn,
-    (on) => (emptyOn = on),
-    "Compress empty gaps longer than the threshold",
-  );
+  // Single fold toggle: flips state, reflects the pressed look, syncs the shared
+  // fields, and drives BOTH backend folds (long blocks + empty regions). On
+  // enable it re-pushes the current params so the widget folds at the field
+  // values rather than whatever it was last constructed with.
+  const shrinkBtn = el("button", {
+    class: `tl-tb-btn tl-tb-toggle${foldOn ? " is-active" : ""}`,
+    type: "button",
+    text: "Shrink Long Regions",
+    "aria-pressed": String(foldOn),
+    title: "Compress blocks and empty gaps longer than the threshold",
+  }) as HTMLButtonElement;
+  shrinkBtn.addEventListener("click", () => {
+    foldOn = !foldOn;
+    shrinkBtn.classList.toggle("is-active", foldOn);
+    shrinkBtn.setAttribute("aria-pressed", String(foldOn));
+    syncFieldsDisabled();
+    if (foldOn) emitParams();
+    emit("timeline:shrink", { on: foldOn });
+    emit("timeline:collapse-empty", { on: foldOn });
+  });
 
   // Standalone view filter (no shared params): hides rows with nothing in view.
   const hideEmptyRowsBtn = simpleToggle(
@@ -160,7 +135,6 @@ export function createTimelineToolbar(): HTMLElement {
     hideEmptyRowsBtn,
     sep(),
     shrinkBtn,
-    emptyBtn,
     thresholdField,
     toField,
   ]);

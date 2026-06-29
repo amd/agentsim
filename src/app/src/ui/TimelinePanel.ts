@@ -318,6 +318,7 @@ export function createTimelinePanel(
       widget = new TimelineWidget(timelineBody, {
         spans,
         features: { toolbar: false, infoPanel: false, miniature: false },
+        defaultWindowMs: 180000,
         collapseLongBlocks: shrinkOn,
         collapseEmptyRegions: collapseEmptyOn,
         hideEmptyRows: hideEmptyRowsOn,
