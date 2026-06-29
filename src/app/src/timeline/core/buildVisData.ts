@@ -27,7 +27,7 @@ const DEFAULT_PALETTE = [
 const sectionColor = (index: number): string =>
   DEFAULT_PALETTE[index % DEFAULT_PALETTE.length];
 
-const rowId = (type: string, title: string): string => `${type} ${title}`;
+export const rowId = (type: string, title: string): string => `${type} ${title}`;
 
 const escapeHtml = (s: string) =>
   s.replace(/[&<>"]/g, (c) =>

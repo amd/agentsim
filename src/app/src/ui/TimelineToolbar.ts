@@ -142,6 +142,14 @@ export function createTimelineToolbar(): HTMLElement {
     "Compress empty gaps longer than the threshold",
   );
 
+  // Standalone view filter (no shared params): hides rows with nothing in view.
+  const hideEmptyRowsBtn = simpleToggle(
+    "Hide Empty Rows",
+    "timeline:hide-empty-rows",
+    true,
+    "Hide rows that have no blocks in the current view",
+  );
+
   return el("div", { class: "tl-toolbar" }, [
     actionButton("+", "timeline:zoom-in", { title: "Zoom in", icon: true }),
     actionButton("−", "timeline:zoom-out", { title: "Zoom out", icon: true }),
@@ -149,10 +157,35 @@ export function createTimelineToolbar(): HTMLElement {
     sep(),
     actionButton("Expand All", "timeline:expand-all"),
     actionButton("Collapse All", "timeline:collapse-all"),
+    hideEmptyRowsBtn,
     sep(),
     shrinkBtn,
     emptyBtn,
     thresholdField,
     toField,
   ]);
+}
+
+// A self-contained on/off toggle button that broadcasts `event` with `{ on }`.
+function simpleToggle(
+  label: string,
+  event: string,
+  initial: boolean,
+  title: string,
+): HTMLButtonElement {
+  const btn = el("button", {
+    class: `tl-tb-btn tl-tb-toggle${initial ? " is-active" : ""}`,
+    type: "button",
+    text: label,
+    "aria-pressed": String(initial),
+    title,
+  }) as HTMLButtonElement;
+  let on = initial;
+  btn.addEventListener("click", () => {
+    on = !on;
+    btn.classList.toggle("is-active", on);
+    btn.setAttribute("aria-pressed", String(on));
+    window.dispatchEvent(new CustomEvent(event, { detail: { on } }));
+  });
+  return btn;
 }

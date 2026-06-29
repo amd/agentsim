@@ -131,6 +131,7 @@ export function createTimelinePanel(
   // match the menu (on, fold blocks >600s down to 60s).
   let shrinkOn = true;
   let collapseEmptyOn = true;
+  let hideEmptyRowsOn = true;
   let shrinkThresholdSec = 600;
   let shrinkToSec = 60;
 
@@ -149,6 +150,10 @@ export function createTimelinePanel(
   window.addEventListener("timeline:collapse-empty", (e) => {
     collapseEmptyOn = (e as CustomEvent<{ on: boolean }>).detail.on;
     widget?.setCollapseEmptyRegions(collapseEmptyOn);
+  });
+  window.addEventListener("timeline:hide-empty-rows", (e) => {
+    hideEmptyRowsOn = (e as CustomEvent<{ on: boolean }>).detail.on;
+    widget?.setHideEmptyRows(hideEmptyRowsOn);
   });
   window.addEventListener("timeline:shrink-params", (e) => {
     const { thresholdSec, collapseToSec } = (
@@ -315,6 +320,7 @@ export function createTimelinePanel(
         features: { toolbar: false, infoPanel: false, miniature: false },
         collapseLongBlocks: shrinkOn,
         collapseEmptyRegions: collapseEmptyOn,
+        hideEmptyRows: hideEmptyRowsOn,
         collapseThresholdSec: shrinkThresholdSec,
         collapseToSec: shrinkToSec,
       });

@@ -57,6 +57,8 @@ export interface TimelineWidgetOptions {
   collapseThresholdSec?: number;
   /** Rendered length in seconds for a compressed block. Default: 2. */
   collapseToSec?: number;
+  /** Hide rows whose spans don't intersect the current visible window. Default: false. */
+  hideEmptyRows?: boolean;
 }
 
 export interface SelectEventPayload {

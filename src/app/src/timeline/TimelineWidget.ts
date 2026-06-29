@@ -6,6 +6,7 @@ import {
   buildItems,
   deriveSections,
   miniatureLanes,
+  rowId,
   type MiniLane,
   type VisItem,
 } from "./core/buildVisData";
@@ -59,6 +60,7 @@ export class TimelineWidget {
   private collapseEmptyRegions: boolean;
   private collapseThresholdMs: number;
   private collapseToMs: number;
+  private hideEmptyRows: boolean;
 
   private toolbar?: ToolbarHandle;
   private themeToggle?: ThemeToggleHandle;
@@ -93,6 +95,7 @@ export class TimelineWidget {
     this.collapseEmptyRegions = options.collapseEmptyRegions ?? false;
     this.collapseThresholdMs = (options.collapseThresholdSec ?? 10) * 1000;
     this.collapseToMs = (options.collapseToSec ?? 2) * 1000;
+    this.hideEmptyRows = options.hideEmptyRows ?? false;
 
     const features = {
       toolbar: true,
@@ -294,6 +297,16 @@ export class TimelineWidget {
     this.applyShrink();
   }
 
+  /** Hide rows whose spans don't intersect the current visible window (toolbar
+      toggle). Re-evaluated on every pan/zoom while on. */
+  setHideEmptyRows(on: boolean): void {
+    if (this.hideEmptyRows === on) return;
+    this.hideEmptyRows = on;
+    this.renderGroups();
+    this.view.refresh();
+    this.emitLayout();
+  }
+
   /** Update the fold thresholds at runtime (toolbar fields), shared by both the
       long-block and empty-region folds. `thresholdSec` is the minimum block/gap
       length that gets folded; `collapseToSec` is how much of each folded stretch
@@ -456,6 +469,7 @@ export class TimelineWidget {
     // window sync -> miniature + break markers + event
     const onRange = () => {
       const w = this.windowMs();
+      this.refreshRowVisibility();
       this.miniature?.updateWindow();
       this.breakMarkers?.reposition();
       this.emitter.emit("rangechange", {
@@ -497,6 +511,8 @@ export class TimelineWidget {
     });
     this.breakMarkers.render();
 
+    // Initial window is set now, so empty rows can be filtered for the first paint.
+    this.refreshRowVisibility();
     this.miniature?.renderLanes();
     this.miniature?.updateWindow();
   }
@@ -579,10 +595,51 @@ export class TimelineWidget {
 
   private renderGroups(): void {
     const rows = buildGroups(this.sections, this.collapsed);
+    this.applyRowVisibility(rows);
     this.groups.update(rows);
     const keep = new Set(rows.map((r) => r.id));
     const remove = (this.groups.getIds() as string[]).filter((id) => !keep.has(id));
     if (remove.length) this.groups.remove(remove);
+  }
+
+  /** group id -> its spans (section header keyed by `type`, rows by `rowId`). */
+  private groupSpansById(): Map<string, Span[]> {
+    const m = new Map<string, Span[]>();
+    for (const section of this.sections) {
+      m.set(section.type, section.spans);
+      for (const row of section.rows) m.set(rowId(section.type, row.title), row.spans);
+    }
+    return m;
+  }
+
+  /** Stamp each group row with a `visible` flag: when hide-empty-rows is on, a
+      row is hidden unless one of its spans intersects the current window. */
+  private applyRowVisibility(rows: any[]): void {
+    if (!this.hideEmptyRows) {
+      for (const r of rows) r.visible = true;
+      return;
+    }
+    const { startMs, endMs } = this.windowMs();
+    const spansById = this.groupSpansById();
+    for (const r of rows) {
+      const spans = spansById.get(r.id) ?? [];
+      r.visible = spans.some((s) => spanStartMs(s) < endMs && spanEndMs(s) > startMs);
+    }
+  }
+
+  /** Lightweight pass for pan/zoom: only flips the `visible` flag on existing
+      groups (no rebuild) so rows reveal/hide as they enter/leave the window. */
+  private refreshRowVisibility(): void {
+    if (!this.hideEmptyRows) return;
+    const { startMs, endMs } = this.windowMs();
+    const spansById = this.groupSpansById();
+    const updates = (this.groups.get() as any[]).map((r) => ({
+      id: r.id,
+      visible: (spansById.get(r.id) ?? []).some(
+        (s) => spanStartMs(s) < endMs && spanEndMs(s) > startMs,
+      ),
+    }));
+    this.groups.update(updates);
   }
 
   private setAllCollapsed(state: boolean): void {
