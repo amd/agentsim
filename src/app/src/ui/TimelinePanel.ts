@@ -52,11 +52,21 @@ function formatClock(ms: number): string {
 
 export interface TimelinePanel {
   showTrace: (conversation: Conversation) => Promise<void>;
+  hideInfo: () => void;
+}
+
+/** Host-owned block-info section under the miniature: the body to render into
+    and a visibility toggle (the section collapses to free up timeline height
+    when no block is selected). */
+export interface InfoSection {
+  body: HTMLElement;
+  setVisible: (visible: boolean) => void;
 }
 
 export function createTimelinePanel(
   timelineBody: HTMLElement,
   miniContent: HTMLElement,
+  info: InfoSection,
 ): TimelinePanel {
   let widget: TimelineWidget | null = null;
   let requestSeq = 0;
@@ -89,10 +99,11 @@ export function createTimelinePanel(
     widget?.setShrinkParams(thresholdSec, collapseToSec);
   });
 
-  // ---- block-info popup -----------------------------------------------------
-  // Clicking a span opens a modal (same overlay/chrome as Manage Data Sources)
-  // with the selected span's details; only one is open at a time.
-  let closeInfo: (() => void) | null = null;
+  // ---- block-info section ---------------------------------------------------
+  // Clicking a span renders its details into the host's docked section under the
+  // miniature and reveals it (which shrinks the timeline). The section hides
+  // when closed or when a new trace loads, letting the timeline reclaim height.
+  const hideInfo = () => info.setVisible(false);
 
   const showInfo = (p: SelectEventPayload) => {
     const { type, span, merged, startMs, endMs } = p;
@@ -102,47 +113,17 @@ export function createTimelinePanel(
       widget?.toggleSection(type);
       return;
     }
-    closeInfo?.();
     const duration = spanDurationMs(span);
     const timing = `${formatClock(startMs)} → ${formatClock(endMs)} · ${duration} ms`;
-    const title = span.title;
-    const subtitle = `${prettyType(type)} · ${timing}`;
     const content = span.content?.trim() ? prettyJson(span.content) : "(no content)";
 
-    const closeBtn = el("button", {
-      class: "lm-icon-btn ds-close",
-      "aria-label": "Close",
-      text: "✕",
-    });
-    const modal = el("div", { class: "ds-modal tl-info-modal" }, [
-      el("div", { class: "ds-header" }, [
-        el("h3", { class: "ds-title", text: "Block Info" }),
-        closeBtn,
-      ]),
-      el("div", { class: "ds-body" }, [
-        el("div", { class: "tl-info-title", text: title }),
-        el("div", { class: "tl-info-subtitle", text: subtitle }),
-        el("div", { class: "tl-info-content", text: content }),
-      ]),
-    ]);
-    const overlay = el("div", { class: "ds-overlay" }, [modal]);
-
-    const close = () => {
-      overlay.remove();
-      document.removeEventListener("keydown", onKey);
-      closeInfo = null;
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") close();
-    };
-    closeBtn.addEventListener("click", close);
-    overlay.addEventListener("click", (e) => {
-      if (e.target === overlay) close();
-    });
-    document.addEventListener("keydown", onKey);
-    closeInfo = close;
-
-    document.body.append(overlay);
+    clear(info.body);
+    info.body.append(
+      el("div", { class: "tl-info-title", text: span.title }),
+      el("div", { class: "tl-info-subtitle", text: `${prettyType(type)} · ${timing}` }),
+      el("div", { class: "tl-info-content", text: content }),
+    );
+    info.setVisible(true);
   };
 
   // ---- host miniature -------------------------------------------------------
@@ -236,7 +217,7 @@ export function createTimelinePanel(
   // ---- load + render --------------------------------------------------------
   const showTrace = async (conversation: Conversation): Promise<void> => {
     const seq = ++requestSeq;
-    closeInfo?.();
+    hideInfo();
     if (!widget) {
       clear(timelineBody);
       timelineBody.append(el("div", { class: "tl-state", text: "Loading…" }));
@@ -283,5 +264,5 @@ export function createTimelinePanel(
     renderMiniature();
   };
 
-  return { showTrace };
+  return { showTrace, hideInfo };
 }

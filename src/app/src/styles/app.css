@@ -705,6 +705,7 @@ html, body {
    ones redistribute the space automatically. */
 .canvas-timeline                                 { flex: 7 1 0; }
 .tl-mini-content                                 { flex: 1 1 0; }
+.canvas-section[data-panel="block-info"]         { flex: 2 1 0; position: relative; }
 
 /* Primary workspace: hosts the timeline widget directly (no section chrome).
    The widget adds `.tlw` (height:100%) to this element and fills it. */
@@ -765,8 +766,15 @@ html, body {
     color: var(--text-secondary);
 }
 
-/* --- block-info popup (selected span details) --------------------------- */
-.tl-info-modal { width: 520px; }
+/* --- block-info section (selected span details, docked under miniature) -- */
+/* No header bar — a compact close button floats over the top-right corner so
+   the section's full height is content. */
+.tl-info-close {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    z-index: 1;
+}
 .tl-info-title {
     font-weight: 600;
     color: var(--text-primary);
