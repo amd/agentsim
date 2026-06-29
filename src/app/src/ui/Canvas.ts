@@ -1,5 +1,6 @@
 import { el } from "./dom.js";
 import { createTimelinePanel } from "./TimelinePanel.js";
+import { createTimelineToolbar } from "./TimelineToolbar.js";
 import type { Conversation } from "../data/conversations.js";
 
 // The timeline (primary workspace) and the miniature both mount bare — no
@@ -9,8 +10,15 @@ import type { Conversation } from "../data/conversations.js";
 // `data-panel` keys let AppShell toggle the miniature; the timeline carries one
 // only to claim its flex ratio.
 export function createCanvas(): HTMLElement {
-  const timeline = el("div", { class: "canvas-timeline", "data-panel": "timeline" }, [
+  // The timeline section stacks a host-owned toolbar over the widget mount. The
+  // widget adds `.tlw` to its mount (`timelineBody`), so the toolbar stays above
+  // it and the controller's `clear(timelineBody)` never wipes the toolbar.
+  const timelineBody = el("div", { class: "canvas-timeline-body", "data-panel": "timeline" }, [
     el("div", { class: "tl-state", text: "Select a conversation to view its timeline." }),
+  ]);
+  const timeline = el("div", { class: "canvas-timeline" }, [
+    createTimelineToolbar(),
+    timelineBody,
   ]);
   const miniature = el("div", { "data-panel": "timeline-miniature" });
 
@@ -29,7 +37,7 @@ export function createCanvas(): HTMLElement {
 
   const canvas = el("div", { class: "canvas" }, [timeline, miniature, blockInfo]);
 
-  const panel = createTimelinePanel(timeline, miniature, {
+  const panel = createTimelinePanel(timelineBody, miniature, {
     body: infoBody,
     setVisible: (visible) => {
       blockInfo.style.display = visible ? "flex" : "none";

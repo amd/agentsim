@@ -81,65 +81,6 @@ const viewToggle = (name: string, event: string, checked: boolean): MenuCheckbox
   return item;
 };
 
-// Fire-and-forget timeline command: broadcasts a CustomEvent that the timeline
-// controller (TimelinePanel) listens for and forwards to the widget.
-const timelineAction = (event: string) => () => window.dispatchEvent(new CustomEvent(event));
-
-// The two shrink-duration fields. They share state: "to" can't exceed "longer
-// than" (a block can't shrink to more than its own fold threshold). Each field
-// holds its own value (so a reopened dropdown shows the applied value) and
-// broadcasts the combined params to the timeline controller, which forwards them
-// to the widget. Grayed out until shrink is enabled (see shrinkToggle below).
-const shrinkThresholdField: MenuNumber = {
-  numberLabel: "Longer than",
-  value: 600,
-  min: 5,
-  suffix: "sec",
-  onChange: () => {},
-};
-const shrinkToField: MenuNumber = {
-  numberLabel: "To",
-  value: 60,
-  min: 1,
-  suffix: "sec",
-  onChange: () => {},
-};
-const emitShrinkParams = () =>
-  window.dispatchEvent(
-    new CustomEvent("timeline:shrink-params", {
-      detail: { thresholdSec: shrinkThresholdField.value, collapseToSec: shrinkToField.value },
-    }),
-  );
-shrinkThresholdField.onChange = (v) => {
-  shrinkThresholdField.value = Math.max(5, v);
-  if (shrinkToField.value > shrinkThresholdField.value)
-    shrinkToField.value = shrinkThresholdField.value;
-  emitShrinkParams();
-};
-shrinkToField.onChange = (v) => {
-  shrinkToField.value = Math.max(1, v);
-  if (shrinkToField.value > shrinkThresholdField.value)
-    shrinkThresholdField.value = shrinkToField.value;
-  emitShrinkParams();
-};
-
-// Long-block shrink toggle: broadcasts its on/off state to the timeline
-// controller and enables/disables the two duration fields to match. Holds its
-// own checked state like the other menu checkboxes. When turning on, it first
-// pushes the current field values so the widget folds at 600s→60s (its built-in
-// defaults differ) rather than whatever it was last constructed with.
-const shrinkToggleItem: MenuCheckbox = {
-  label: "Shrink Long Blocks",
-  checked: true,
-  onToggle: (next) => {
-    shrinkToggleItem.checked = next;
-    shrinkThresholdField.disabled = !next;
-    shrinkToField.disabled = !next;
-    if (next) emitShrinkParams();
-    window.dispatchEvent(new CustomEvent("timeline:shrink", { detail: { on: next } }));
-  },
-};
-
 export const menus: Menu[] = [
   {
     label: "File",
@@ -165,22 +106,6 @@ export const menus: Menu[] = [
     options: [
       viewToggle("Show Sessions", "view:sessions", true),
       viewToggle("Show Timeline Miniature", "view:timeline-miniature", true),
-    ],
-  },
-  {
-    label: "Timeline",
-    options: [
-      { label: "Zoom In", onSelect: timelineAction("timeline:zoom-in") },
-      { label: "Zoom Out", onSelect: timelineAction("timeline:zoom-out") },
-      { label: "Fit", onSelect: timelineAction("timeline:fit") },
-      "divider",
-      { label: "Expand All", onSelect: timelineAction("timeline:expand-all") },
-      { label: "Collapse All", onSelect: timelineAction("timeline:collapse-all") },
-      "divider",
-      shrinkToggleItem,
-      shrinkThresholdField,
-      shrinkToField,
-      "divider",
       wip(checkbox("Show Token Usage", true)),
     ],
   },

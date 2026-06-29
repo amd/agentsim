@@ -707,9 +707,18 @@ html, body {
 .tl-mini-content                                 { flex: 1 1 0; }
 .canvas-section[data-panel="block-info"]         { flex: 2 1 0; position: relative; }
 
-/* Primary workspace: hosts the timeline widget directly (no section chrome).
-   The widget adds `.tlw` (height:100%) to this element and fills it. */
+/* Primary workspace: a host toolbar stacked over the widget mount. */
 .canvas-timeline {
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* The widget mount fills the space under the toolbar. The widget adds `.tlw`
+   (height:100%) to this element and fills it. */
+.canvas-timeline-body {
+    flex: 1;
     min-height: 0;
     position: relative;
     overflow: hidden;
@@ -717,15 +726,77 @@ html, body {
 
 /* Sit the timeline flush against the canvas edges — drop the widget's internal
    panel padding so the vis chart fills the mount with no inset frame. */
-.canvas-timeline.tlw .tlw-timeline { padding: 0; }
+.canvas-timeline-body.tlw .tlw-timeline { padding: 0; }
 
 /* Drop the per-block border: zoomed out, narrow blocks collapse to just their
    border color. Selection still reads via its inset box-shadow. */
-.canvas-timeline.tlw .vis-item { border-width: 0; }
+.canvas-timeline-body.tlw .vis-item { border-width: 0; }
 
 /* Summary/merged bars aren't clickable, so don't show the yellow selection
    outline when vis marks one selected. */
-.canvas-timeline.tlw .vis-item.summary.vis-selected { box-shadow: none; }
+.canvas-timeline-body.tlw .vis-item.summary.vis-selected { box-shadow: none; }
+
+/* --- timeline toolbar (host-owned, docked atop the timeline) ------------- */
+.tl-toolbar {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 0 8px 6px;
+    border-bottom: 1px solid var(--border-tertiary);
+}
+/* Buttons mirror the sidebar header action icons (.lm-icon-btn at 24px): subtle
+   bordered squares/pills that fill in on hover and read as pressed when active. */
+.tl-tb-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 24px;
+    padding: 0 10px;
+    border: 1px solid var(--border-4);
+    background: transparent;
+    color: var(--text-secondary);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    font-size: 0.8rem;
+    white-space: nowrap;
+    transition: all 0.2s ease;
+}
+.tl-tb-btn:hover { background: var(--bg-alpha-06); color: var(--text-tertiary); }
+.tl-tb-icon { width: 24px; padding: 0; font-size: 1rem; line-height: 1; }
+.tl-tb-toggle.is-active {
+    background: var(--bg-alpha-1);
+    color: var(--text-primary);
+    border-color: var(--border-5);
+}
+.tl-tb-sep {
+    width: 1px;
+    align-self: stretch;
+    margin: 2px 4px;
+    background: var(--border-tertiary);
+}
+.tl-tb-field {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+.tl-tb-field.is-disabled { opacity: 0.4; }
+.tl-tb-num {
+    width: 56px;
+    height: 24px;
+    padding: 0 6px;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: var(--text-primary);
+    background: var(--bg-primary);
+    border: 1px solid var(--border-primary);
+    border-radius: var(--radius-sm);
+}
+.tl-tb-num:disabled { cursor: not-allowed; }
+.tl-tb-field-suffix { color: var(--text-secondary); }
 
 .canvas-section {
     display: flex;
