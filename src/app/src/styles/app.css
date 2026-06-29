@@ -743,7 +743,7 @@ html, body {
     align-items: center;
     flex-wrap: wrap;
     gap: 6px;
-    padding: 0 8px 6px;
+    padding: 0 8px 6px 0;
     border-bottom: 1px solid var(--border-tertiary);
 }
 /* Buttons mirror the sidebar header action icons (.lm-icon-btn at 24px): subtle
@@ -796,6 +796,16 @@ html, body {
     border-radius: var(--radius-sm);
 }
 .tl-tb-num:disabled { cursor: not-allowed; }
+/* Focus via border color, not an outline — the toolbar's zero top padding +
+   overflow would clip an outline drawn above the field. */
+.tl-tb-num:focus { outline: none; border-color: var(--lemon-amber); }
+/* Drop the native number spinners — values are typed, not stepped. */
+.tl-tb-num::-webkit-outer-spin-button,
+.tl-tb-num::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+.tl-tb-num { -moz-appearance: textfield; appearance: textfield; }
 .tl-tb-field-suffix { color: var(--text-secondary); }
 
 .canvas-section {
