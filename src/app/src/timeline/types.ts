@@ -51,7 +51,9 @@ export interface TimelineWidgetOptions {
   defaultWindowMs?: number;
   /** Compress any span longer than `collapseThresholdSec` down to `collapseToSec`. Default: false. */
   collapseLongBlocks?: boolean;
-  /** Threshold in seconds; blocks longer than this are compressed. Default: 10. */
+  /** Compress any empty gap longer than `collapseThresholdSec` down to `collapseToSec`. Default: false. */
+  collapseEmptyRegions?: boolean;
+  /** Threshold in seconds; blocks/gaps longer than this are compressed. Default: 10. */
   collapseThresholdSec?: number;
   /** Rendered length in seconds for a compressed block. Default: 2. */
   collapseToSec?: number;

@@ -41,7 +41,10 @@ export interface ProjectionInput {
   spans: Span[];
   firstMs: number;
   spanMs: number;
-  collapse: boolean;
+  /** fold the middle of any span longer than `thresholdMs` */
+  collapseLongBlocks: boolean;
+  /** fold the middle of any empty gap (no span) longer than `thresholdMs` */
+  collapseEmptyRegions: boolean;
   thresholdMs: number;
   collapseToMs: number;
 }
@@ -97,11 +100,40 @@ function computeBreaks(
   return ranges;
 }
 
+/** The hidden (folded-away) middle of every EMPTY gap longer than the threshold.
+    Mirror of `computeBreaks` but operating on the stretches NOT covered by any
+    span: the timeline's empty regions fold the same way long blocks do, keeping
+    `collapseToMs` of each gap visible (half at each edge) and hiding the middle. */
+function computeEmptyBreaks(
+  spans: Span[],
+  firstMs: number,
+  spanMs: number,
+  thresholdMs: number,
+  collapseToMs: number,
+): Interval[] {
+  const ranges: Interval[] = [];
+  const half = collapseToMs / 2;
+  const occupied = mergeIntervals(spans.map((s) => [spanStartMs(s), spanEndMs(s)]));
+  for (const [gs, ge] of freeSubintervals(firstMs, firstMs + spanMs, occupied)) {
+    if (ge - gs <= thresholdMs) continue;
+    const hStart = gs + half;
+    const hEnd = ge - half;
+    if (hEnd > hStart) ranges.push([hStart, hEnd]);
+  }
+  return ranges;
+}
+
 export function createProjection(input: ProjectionInput): Projection {
-  const { firstMs, spanMs, collapse, thresholdMs, collapseToMs } = input;
-  const breaks: Interval[] = collapse
-    ? mergeIntervals(computeBreaks(input.spans, thresholdMs, collapseToMs))
-    : [];
+  const { firstMs, spanMs, collapseLongBlocks, collapseEmptyRegions, thresholdMs, collapseToMs } =
+    input;
+  // Both toggles feed the same fold machinery; collect each enabled source's
+  // ranges and merge once so overlapping folds (e.g. a long block adjacent to a
+  // long gap) become a single seam.
+  const raw: Interval[] = [];
+  if (collapseLongBlocks) raw.push(...computeBreaks(input.spans, thresholdMs, collapseToMs));
+  if (collapseEmptyRegions)
+    raw.push(...computeEmptyBreaks(input.spans, firstMs, spanMs, thresholdMs, collapseToMs));
+  const breaks: Interval[] = mergeIntervals(raw);
 
   const toCompressed = (t: number): number => {
     let hidden = 0;

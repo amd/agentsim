@@ -56,6 +56,7 @@ export class TimelineWidget {
   private readonly zoomMinMs: number;
   private readonly defaultWindowMs?: number;
   private collapseLongBlocks: boolean;
+  private collapseEmptyRegions: boolean;
   private collapseThresholdMs: number;
   private collapseToMs: number;
 
@@ -89,6 +90,7 @@ export class TimelineWidget {
     this.zoomMinMs = options.zoomMinMs ?? 1000;
     this.defaultWindowMs = options.defaultWindowMs;
     this.collapseLongBlocks = options.collapseLongBlocks ?? false;
+    this.collapseEmptyRegions = options.collapseEmptyRegions ?? false;
     this.collapseThresholdMs = (options.collapseThresholdSec ?? 10) * 1000;
     this.collapseToMs = (options.collapseToSec ?? 2) * 1000;
 
@@ -284,13 +286,22 @@ export class TimelineWidget {
     this.applyShrink();
   }
 
-  /** Update the shrink thresholds at runtime (toolbar fields). `thresholdSec`
-      is the minimum block length that gets folded; `collapseToSec` is how much
-      of each folded stretch stays visible. Re-renders only when shrink is on. */
+  /** Turn the empty-region compression on/off at runtime (toolbar toggle). Folds
+      empty gaps with the same threshold/to params as long-block shrink. */
+  setCollapseEmptyRegions(on: boolean): void {
+    if (this.collapseEmptyRegions === on) return;
+    this.collapseEmptyRegions = on;
+    this.applyShrink();
+  }
+
+  /** Update the fold thresholds at runtime (toolbar fields), shared by both the
+      long-block and empty-region folds. `thresholdSec` is the minimum block/gap
+      length that gets folded; `collapseToSec` is how much of each folded stretch
+      stays visible. Re-renders only when at least one fold is on. */
   setShrinkParams(thresholdSec: number, collapseToSec: number): void {
     this.collapseThresholdMs = Math.max(0, thresholdSec) * 1000;
     this.collapseToMs = Math.max(0, collapseToSec) * 1000;
-    if (this.collapseLongBlocks) this.applyShrink();
+    if (this.collapseLongBlocks || this.collapseEmptyRegions) this.applyShrink();
   }
 
   /** Rebuild the projection from the current shrink config and re-render every
@@ -516,7 +527,8 @@ export class TimelineWidget {
       spans: this.spans,
       firstMs: this.firstMs,
       spanMs: this.spanMs,
-      collapse: this.collapseLongBlocks,
+      collapseLongBlocks: this.collapseLongBlocks,
+      collapseEmptyRegions: this.collapseEmptyRegions,
       thresholdMs: this.collapseThresholdMs,
       collapseToMs: this.collapseToMs,
     });
