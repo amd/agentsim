@@ -407,7 +407,12 @@ export class TimelineWidget {
       {
         editable: false,
         selectable: true,
-        stack: false,
+        // Stack overlapping items within a row onto extra lines so parallel
+        // same-title spans (e.g. concurrent Bash calls) never overlap. vis only
+        // bumps an item to a new line when it actually overlaps a neighbor;
+        // non-overlapping items stay on one line, and merged summary bars never
+        // overlap, so the collapsed view is unchanged.
+        stack: true,
         groupOrder: "order",
         orientation: { axis: "top", item: "top" },
         margin: { item: { horizontal: 0, vertical: 6 } },
