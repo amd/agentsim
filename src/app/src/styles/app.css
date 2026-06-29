@@ -786,10 +786,57 @@ html, body {
 }
 .tl-info-content {
     margin-top: 6px;
-    white-space: pre-wrap;
     word-break: break-word;
     color: var(--text-aaa);
 }
+
+/* JSON tree: indented key/value rows; markdown leaves render inline as .tl-md */
+.tl-json-obj,
+.tl-json-arr {
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    line-height: 1.5;
+}
+.tl-json-indent {
+    padding-left: 12px;
+    margin-left: 3px;
+    border-left: 1px solid var(--border-secondary);
+}
+.tl-json-key { color: var(--text-secondary); font-weight: 600; }
+.tl-json-str { color: var(--text-primary); white-space: pre-wrap; }
+.tl-json-lit { color: var(--lemon-amber); }
+
+/* Rendered markdown blocks (string leaves + plain-text content) */
+.tl-md { white-space: normal; }
+.tl-md > :first-child { margin-top: 0; }
+.tl-md > :last-child { margin-bottom: 0; }
+.tl-md p { margin: 4px 0; }
+.tl-md h1, .tl-md h2, .tl-md h3, .tl-md h4 { margin: 8px 0 4px; line-height: 1.3; }
+.tl-md ul, .tl-md ol { margin: 4px 0; padding-left: 20px; }
+.tl-md li { margin: 2px 0; }
+.tl-md a { color: var(--lemon-amber); }
+.tl-md code {
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+    background: var(--bg-tertiary);
+    padding: 1px 4px;
+    border-radius: var(--radius-sm);
+}
+.tl-md pre {
+    background: var(--bg-tertiary);
+    padding: 8px 10px;
+    border-radius: var(--radius-sm);
+    overflow-x: auto;
+}
+.tl-md pre code { background: none; padding: 0; }
+.tl-md blockquote {
+    margin: 4px 0;
+    padding-left: 10px;
+    border-left: 2px solid var(--border-secondary);
+    color: var(--text-secondary);
+}
+.tl-md table { border-collapse: collapse; margin: 4px 0; }
+.tl-md th, .tl-md td { border: 1px solid var(--border-secondary); padding: 3px 8px; }
 
 /* --- host timeline miniature (overview + viewport) ---------------------- */
 .tl-mini-content {

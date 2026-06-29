@@ -1,3 +1,5 @@
+import { marked } from "marked";
+import DOMPurify from "dompurify";
 import { el, clear } from "./dom.js";
 import { TimelineWidget, type Span, type SelectEventPayload } from "../timeline/index.js";
 import { fetchTrace } from "../data/api.js";
@@ -22,19 +24,72 @@ const spanEndMs = (s: Span): number => {
 const spanDurationMs = (s: Span): number =>
   s.duration_ms ?? Math.max(0, spanEndMs(s) - s.offset_start_ms);
 
-// If the content parses as a JSON object/array, re-emit it pretty-printed with
-// 2-space indent; otherwise return it untouched (bare strings/numbers and
-// non-JSON text are left as-is).
-function prettyJson(text: string): string {
+// ---- content rendering -----------------------------------------------------
+// A span's content is either a JSON blob (tool calls: {input, result, ...}) or
+// a plain markdown string (assistant/thinking messages). We render the JSON
+// structure as an indented tree, but any string *leaf* that looks like markdown
+// (or any plain-string content) is rendered as actual markdown. All markdown
+// HTML is sanitized (DOMPurify) before insertion — trace text is untrusted.
+
+const leaf = (cls: string, text: string): HTMLElement => el("span", { class: cls, text });
+
+// Heuristic: newlines or common markdown tokens. Short scalars (e.g. "Read")
+// stay as quoted strings; prose/markdown fields get rendered.
+const MD_HINT = /[\n#`>|]|\*\*|__|\[[^\]]+\]\([^)]+\)|^\s*[-+*]\s|^\s*\d+\.\s/m;
+const looksLikeMarkdown = (s: string): boolean => s.includes("\n") || MD_HINT.test(s);
+
+function mdNode(source: string): HTMLElement {
+  const div = el("div", { class: "tl-md" });
+  div.innerHTML = DOMPurify.sanitize(marked.parse(source) as string);
+  return div;
+}
+
+const isBlockNode = (n: HTMLElement): boolean =>
+  n.classList.contains("tl-md") ||
+  n.classList.contains("tl-json-obj") ||
+  n.classList.contains("tl-json-arr");
+
+function jsonNode(value: unknown): HTMLElement {
+  if (typeof value === "string") {
+    return looksLikeMarkdown(value) ? mdNode(value) : leaf("tl-json-str", JSON.stringify(value));
+  }
+  if (value === null || typeof value === "number" || typeof value === "boolean") {
+    return leaf("tl-json-lit", String(value));
+  }
+  if (Array.isArray(value)) {
+    if (value.length === 0) return leaf("tl-json-lit", "[]");
+    return el("div", { class: "tl-json-arr" }, value.map((v) => entryRow(null, jsonNode(v))));
+  }
+  const entries = Object.entries(value as Record<string, unknown>);
+  if (entries.length === 0) return leaf("tl-json-lit", "{}");
+  return el("div", { class: "tl-json-obj" }, entries.map(([k, v]) => entryRow(k, jsonNode(v))));
+}
+
+// One key/value (or array element) line. Block values drop to an indented row
+// below their key; scalar values sit inline next to it.
+function entryRow(key: string | null, value: HTMLElement): HTMLElement {
+  const keyEl = key === null ? null : leaf("tl-json-key", `${key}: `);
+  if (isBlockNode(value)) {
+    return el("div", { class: "tl-json-entry" }, [
+      keyEl,
+      el("div", { class: "tl-json-indent" }, [value]),
+    ]);
+  }
+  return el("div", { class: "tl-json-entry" }, [keyEl, value]);
+}
+
+function renderContent(raw: string): HTMLElement {
   try {
-    const parsed = JSON.parse(text);
+    const parsed = JSON.parse(raw.trim());
     if (parsed !== null && typeof parsed === "object") {
-      return JSON.stringify(parsed, null, 2);
+      return el("div", { class: "tl-info-content" }, [jsonNode(parsed)]);
     }
   } catch {
-    /* not JSON — fall through */
+    /* not JSON — treat the whole value as markdown below */
   }
-  return text;
+  const node = mdNode(raw);
+  node.classList.add("tl-info-content");
+  return node;
 }
 
 const prettyType = (type: string): string =>
@@ -115,13 +170,15 @@ export function createTimelinePanel(
     }
     const duration = spanDurationMs(span);
     const timing = `${formatClock(startMs)} → ${formatClock(endMs)} · ${duration} ms`;
-    const content = span.content?.trim() ? prettyJson(span.content) : "(no content)";
+    const contentNode = span.content?.trim()
+      ? renderContent(span.content)
+      : el("div", { class: "tl-info-content", text: "(no content)" });
 
     clear(info.body);
     info.body.append(
       el("div", { class: "tl-info-title", text: span.title }),
       el("div", { class: "tl-info-subtitle", text: `${prettyType(type)} · ${timing}` }),
-      el("div", { class: "tl-info-content", text: content }),
+      contentNode,
     );
     info.setVisible(true);
   };
