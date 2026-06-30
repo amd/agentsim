@@ -634,28 +634,45 @@ export class TimelineWidget {
     if (remove.length) this.groups.remove(remove);
   }
 
-  /** group id -> its spans (section header keyed by `type`, rows by `rowId`). */
-  private groupSpansById(): Map<string, Span[]> {
-    const m = new Map<string, Span[]>();
+  /** group id -> { section type, is-header, spans }. Section headers are keyed by
+      `type`, per-title rows by `rowId`. */
+  private groupMetaById(): Map<string, { type: string; isHeader: boolean; spans: Span[] }> {
+    const m = new Map<string, { type: string; isHeader: boolean; spans: Span[] }>();
     for (const section of this.sections) {
-      m.set(section.type, section.spans);
-      for (const row of section.rows) m.set(rowId(section.type, row.title), row.spans);
+      m.set(section.type, { type: section.type, isHeader: true, spans: section.spans });
+      for (const row of section.rows) {
+        m.set(rowId(section.type, row.title), {
+          type: section.type,
+          isHeader: false,
+          spans: row.spans,
+        });
+      }
     }
     return m;
   }
 
-  /** Stamp each group row with a `visible` flag: when hide-empty-rows is on, a
-      row is hidden unless one of its spans intersects the current window. */
+  /** Final visibility for a group row: a per-title row is hidden whenever its
+      section is collapsed (section headers ignore collapse); on top of that, when
+      hide-empty-rows is on, any row whose spans miss the window is also hidden. */
+  private rowVisible(
+    meta: { type: string; isHeader: boolean; spans: Span[] },
+    win: { startMs: number; endMs: number },
+  ): boolean {
+    if (!meta.isHeader && this.collapsed[meta.type]) return false;
+    if (!this.hideEmptyRows) return true;
+    return meta.spans.some((s) => spanStartMs(s) < win.endMs && spanEndMs(s) > win.startMs);
+  }
+
+  /** Stamp each freshly-built group row with its `visible` flag (collapse +
+      hide-empty combined). When hide-empty is off, the collapse-driven `visible`
+      from `buildGroups` is already correct, so leave it untouched. */
   private applyRowVisibility(rows: any[]): void {
-    if (!this.hideEmptyRows) {
-      for (const r of rows) r.visible = true;
-      return;
-    }
-    const { startMs, endMs } = this.windowMs();
-    const spansById = this.groupSpansById();
+    if (!this.hideEmptyRows) return;
+    const win = this.windowMs();
+    const meta = this.groupMetaById();
     for (const r of rows) {
-      const spans = spansById.get(r.id) ?? [];
-      r.visible = spans.some((s) => spanStartMs(s) < endMs && spanEndMs(s) > startMs);
+      const m = meta.get(r.id);
+      if (m) r.visible = this.rowVisible(m, win);
     }
   }
 
@@ -663,14 +680,12 @@ export class TimelineWidget {
       groups (no rebuild) so rows reveal/hide as they enter/leave the window. */
   private refreshRowVisibility(): void {
     if (!this.hideEmptyRows) return;
-    const { startMs, endMs } = this.windowMs();
-    const spansById = this.groupSpansById();
-    const updates = (this.groups.get() as any[]).map((r) => ({
-      id: r.id,
-      visible: (spansById.get(r.id) ?? []).some(
-        (s) => spanStartMs(s) < endMs && spanEndMs(s) > startMs,
-      ),
-    }));
+    const win = this.windowMs();
+    const meta = this.groupMetaById();
+    const updates = (this.groups.get() as any[]).flatMap((r) => {
+      const m = meta.get(r.id);
+      return m ? [{ id: r.id, visible: this.rowVisible(m, win) }] : [];
+    });
     this.groups.update(updates);
   }
 

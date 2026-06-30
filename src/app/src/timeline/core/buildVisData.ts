@@ -140,15 +140,19 @@ export function buildGroups(
       content: sectionHeaderHtml(section, color, collapsed[section.type]),
       order: gi * 1000,
     });
-    if (!collapsed[section.type]) {
-      section.rows.forEach((row, li) => {
-        rows.push({
-          id: rowId(section.type, row.title),
-          content: rowLabelHtml(row.title),
-          order: gi * 1000 + (li + 1),
-        });
+    // Per-title rows are ALWAYS emitted; collapse hides them via `visible` rather
+    // than removing them from the dataset. Structural add/remove on every toggle
+    // kept vis's redraw loop "resized" across frames, eventually pinning its
+    // redrawCount at the cap and wedging collapse — flipping `visible` restacks
+    // without churn so the loop converges.
+    section.rows.forEach((row, li) => {
+      rows.push({
+        id: rowId(section.type, row.title),
+        content: rowLabelHtml(row.title),
+        order: gi * 1000 + (li + 1),
+        visible: !collapsed[section.type],
       });
-    }
+    });
   });
   return rows;
 }
