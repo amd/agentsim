@@ -76,11 +76,30 @@ Write-Host "[stage-python] installing $reqFile"
 & $pythonExe -m pip install --no-warn-script-location -r $reqFile
 if ($LASTEXITCODE -ne 0) { throw "pip install failed ($LASTEXITCODE)" }
 
-# 4. Copy the server source next to the runtime.
-New-Item -ItemType Directory -Force -Path $serverOut | Out-Null
-Copy-Item -Recurse -Force $serverSrc (Join-Path $serverOut "app")
+# 4. Copy the server source next to the runtime. Pre-create the target dir and
+#    copy the *contents* (`$serverSrc\*`) into it — this is deterministic, unlike
+#    `Copy-Item $dir $dest` whose result depends on whether $dest already exists.
+$serverAppOut = Join-Path $serverOut "app"
+if (-not (Test-Path $serverSrc)) { throw "Server source not found: $serverSrc" }
+New-Item -ItemType Directory -Force -Path $serverAppOut | Out-Null
+Copy-Item -Path (Join-Path $serverSrc "*") -Destination $serverAppOut -Recurse -Force
 # Drop any compiled caches that may have been copied along.
 Get-ChildItem -Path $serverOut -Recurse -Directory -Filter "__pycache__" -ErrorAction SilentlyContinue |
   Remove-Item -Recurse -Force
+
+# 5. Verify the staged tree has the files the bundle's resource globs expect, so
+#    a staging slip fails here with a clear message rather than as an opaque
+#    "glob pattern ... didn't match any files" during `tauri build`.
+$mustExist = @(
+  (Join-Path $pythonDir "python.exe"),
+  (Join-Path $serverAppOut "main.py")
+)
+foreach ($p in $mustExist) {
+  if (-not (Test-Path $p)) {
+    Write-Host "[stage-python] runtime tree under $runtimeDir :"
+    Get-ChildItem -Recurse $runtimeDir | Select-Object -ExpandProperty FullName | Write-Host
+    throw "Staging incomplete: expected file missing -> $p"
+  }
+}
 
 Write-Host "[stage-python] done."
