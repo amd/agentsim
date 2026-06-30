@@ -190,6 +190,12 @@ export class TimelineWidget {
     return this.windowMs();
   }
 
+  /** Whether the axis renders in `hh:mm:ss` (trace spans over an hour) vs `m:ss`.
+      Lets a host info panel format timestamps to match the axis structure. */
+  isLongTimeline(): boolean {
+    return this.spanMs > 3600000;
+  }
+
   /** Pan so the visible window begins at compressed fraction `f`, preserving its
       on-screen width. Lets an external miniature drive drag-to-pan, same as the
       built-in one. */

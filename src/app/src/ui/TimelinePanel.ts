@@ -95,14 +95,23 @@ function renderContent(raw: string): HTMLElement {
 const prettyType = (type: string): string =>
   type.replace(/[_-]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
-// m:ss.mmm — matches the widget info panel's clock format.
-function formatClock(ms: number): string {
+// Clock for the block-info subtitle. `hours` mirrors the axis structure (on for
+// trace spans over an hour) so timestamps read `hh:mm:ss.mmm` and minutes don't
+// balloon; off it stays `m:ss.mmm`.
+function formatClock(ms: number, hours: boolean): string {
   const sign = ms < 0 ? "-" : "";
   const abs = Math.abs(Math.round(ms));
-  const m = Math.floor(abs / 60000);
-  const s = Math.floor((abs % 60000) / 1000);
-  const mmm = abs % 1000;
-  return `${sign}${m}:${String(s).padStart(2, "0")}.${String(mmm).padStart(3, "0")}`;
+  const totalSec = Math.floor(abs / 1000);
+  const s = totalSec % 60;
+  const ss = String(s).padStart(2, "0");
+  const mmm = String(abs % 1000).padStart(3, "0");
+  if (hours) {
+    const h = Math.floor(totalSec / 3600);
+    const m = Math.floor((totalSec % 3600) / 60);
+    return `${sign}${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${ss}.${mmm}`;
+  }
+  const m = Math.floor(totalSec / 60);
+  return `${sign}${m}:${ss}.${mmm}`;
 }
 
 export interface TimelinePanel {
@@ -179,7 +188,8 @@ export function createTimelinePanel(
       return;
     }
     const duration = spanDurationMs(span);
-    const timing = `${formatClock(startMs)} → ${formatClock(endMs)} · ${duration} ms`;
+    const hours = widget?.isLongTimeline() ?? false;
+    const timing = `${formatClock(startMs, hours)} → ${formatClock(endMs, hours)} · ${duration} ms`;
     const contentNode = span.content?.trim()
       ? renderContent(span.content)
       : el("div", { class: "tl-info-content", text: "(no content)" });
