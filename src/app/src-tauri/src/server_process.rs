@@ -14,6 +14,14 @@ pub struct ServerProcess {
     child: Mutex<Option<Child>>,
 }
 
+// Where the interpreter and `app.main` package live. In dev we run from the repo
+// (venv + src/server); in a bundled install we run the embeddable Python and the
+// server source that the MSI ships under the app's resource dir.
+pub struct ServerPaths {
+    pub python: PathBuf,
+    pub server_dir: PathBuf,
+}
+
 impl ServerProcess {
     pub fn new() -> Self {
         Self {
@@ -21,21 +29,19 @@ impl ServerProcess {
         }
     }
 
-    // Start the FastAPI server: `python -m app.main` run from src/server, using
-    // the repo's virtualenv interpreter if present (so FastAPI/uvicorn are on
-    // hand). Make sure dependencies are installed first:
-    //   python -m pip install -r src/server/requirements.txt
-    pub fn start(&self) {
-        let repo_root = repo_root();
-        let server_dir = repo_root.join("src/server");
-        let python = python_executable(&repo_root);
+    // Start the FastAPI server: `python -m app.main --port 4317`, run from the
+    // server dir with the given interpreter. The caller resolves dev-vs-bundled
+    // paths (see `resolve_paths`).
+    pub fn start(&self, paths: &ServerPaths) {
+        let python = &paths.python;
+        let server_dir = &paths.server_dir;
 
         println!("[host] starting python server: {} -m app.main", python.display());
 
         // No --config-dir: config.json defaults to ~/.cache/.agent-sim. The
         // active set starts empty; the user adds data sources from the app.
         let result = Command::new(python)
-            .current_dir(&server_dir)
+            .current_dir(server_dir)
             .arg("-m")
             .arg("app.main")
             .arg("--port")
@@ -61,6 +67,37 @@ impl ServerProcess {
             let _ = child.kill();
             let _ = child.wait();
         }
+    }
+}
+
+// Resolve where to find the interpreter + server source.
+//
+// - Bundled (release): the MSI ships an embeddable Python and the server source
+//   as Tauri resources, so we run `<resource_dir>/python/python.exe` against
+//   `<resource_dir>/server`. No system Python required.
+// - Dev (debug, or when the bundled runtime is absent): run from the repo —
+//   the venv interpreter if present, else `python` on PATH — against src/server.
+//
+// `resource_dir` is the Tauri-resolved resource directory (None when unavailable).
+pub fn resolve_paths(resource_dir: Option<PathBuf>) -> ServerPaths {
+    if !cfg!(debug_assertions) {
+        if let Some(res) = resource_dir {
+            let python = if cfg!(windows) {
+                res.join("python/python.exe")
+            } else {
+                res.join("python/bin/python3")
+            };
+            let server_dir = res.join("server");
+            if python.exists() && server_dir.exists() {
+                return ServerPaths { python, server_dir };
+            }
+        }
+    }
+
+    let repo_root = repo_root();
+    ServerPaths {
+        python: python_executable(&repo_root),
+        server_dir: repo_root.join("src/server"),
     }
 }
 

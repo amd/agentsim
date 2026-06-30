@@ -1,0 +1,10 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "bundle": {
+    "targets": ["msi"],
+    "resources": {
+      "runtime/python/**": "python/",
+      "runtime/server/**": "server/"
+    }
+  }
+}

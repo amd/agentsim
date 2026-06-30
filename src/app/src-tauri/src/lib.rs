@@ -9,13 +9,14 @@ use server_process::ServerProcess;
 // run() builds and starts the Tauri application. main.rs just calls this.
 //
 // Sequence:
-//   1. create the ServerProcess holder and start the Python server,
-//   2. keep it in Tauri's managed state so it lives as long as the app,
-//   3. run the app,
-//   4. on Exit, stop the server so nothing is left running.
+//   1. create the ServerProcess holder,
+//   2. in setup(), resolve dev-vs-bundled paths (needs the app's resource dir)
+//      and start the Python server,
+//   3. keep it in Tauri's managed state so it lives as long as the app,
+//   4. run the app,
+//   5. on Exit, stop the server so nothing is left running.
 pub fn run() {
     let server = Arc::new(ServerProcess::new());
-    server.start();
 
     let server_for_state = server.clone();
 
@@ -23,6 +24,13 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .setup(move |app| {
+            // Resolve the interpreter + server source. In a bundled install the
+            // MSI ships an embeddable Python and the server under the resource
+            // dir; in dev we fall back to the repo venv / src/server.
+            let resource_dir = app.path().resource_dir().ok();
+            let paths = server_process::resolve_paths(resource_dir);
+            server_for_state.start(&paths);
+
             // Stash the server handle in app state (good practice; lets future
             // commands reach it). Not strictly required for this sample.
             app.manage(server_for_state.clone());

@@ -12,6 +12,10 @@ dist/
 **/dist/
 src/app/src-tauri/target/
 
+# release pipeline: staged Python+server runtime and built installers
+src/app/src-tauri/runtime/
+release/dist/
+
 # Rust
 target/
 

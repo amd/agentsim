@@ -1,0 +1,63 @@
+name: Release (Windows MSI)
+
+# Thin wrapper: the real build logic lives in release/build.ps1 so it can run
+# identically on a dev machine and here. Pushing to the `releases` branch builds
+# a self-contained .msi (embeddable Python + FastAPI server bundled in) and
+# publishes it as a GitHub Release.
+
+on:
+  push:
+    branches: ["releases"]
+  workflow_dispatch:
+
+permissions:
+  contents: write # needed to create the GitHub Release
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src/app/src-tauri
+
+      - name: Build MSI
+        shell: pwsh
+        run: ./release/build.ps1
+
+      - name: Read app version
+        id: ver
+        shell: pwsh
+        run: |
+          $v = (Get-Content src/app/src-tauri/tauri.conf.json | ConvertFrom-Json).version
+          "version=$v" >> $env:GITHUB_OUTPUT
+
+      - name: Upload MSI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AgentSim-msi
+          path: release/dist/*.msi
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.ver.outputs.version }}-${{ github.run_number }}
+          name: AgentSim v${{ steps.ver.outputs.version }}
+          files: release/dist/*.msi
+          fail_on_unmatched_files: true
