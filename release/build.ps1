@@ -43,7 +43,8 @@ try {
   # Merge the release overlay (msi target + bundled runtime resources) onto the
   # base config. Kept separate so `tauri dev` doesn't require the staged runtime.
   $releaseConf = Join-Path $repoRoot "src/app/src-tauri/tauri.release.conf.json"
-  npm run tauri:build --workspace src/app -- --config $releaseConf
+  # --verbose surfaces WiX candle/light output so bundling failures are diagnosable.
+  npm run tauri:build --workspace src/app -- --verbose --config $releaseConf
   if ($LASTEXITCODE -ne 0) { throw "tauri build failed ($LASTEXITCODE)" }
 
   # Collect the installer.
