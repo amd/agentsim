@@ -485,6 +485,7 @@ export class TimelineWidget {
     this.timeline.on("changed", () => {
       this.refreshZoomFloor();
       this.updateLabelHints();
+      this.centerItems();
     });
 
     const total = this.projection.totalCompressedMs;
@@ -515,6 +516,37 @@ export class TimelineWidget {
     this.refreshRowVisibility();
     this.miniature?.renderLanes();
     this.miniature?.updateWindow();
+  }
+
+  // Vertically center each row's items within its lane. Bars carry no text, so
+  // they're short while a row is sized to its (taller) left label — vis anchors
+  // items to the top (orientation item:"top"), leaving an uneven gap below. We
+  // shift each group's item-stack as a block to the row's midline so the gap is
+  // equal top and bottom. A `transform` is used deliberately: it's applied after
+  // layout, so vis's own `offsetTop`-based stacking math is unaffected (setting
+  // `top` directly would corrupt stacking). Runs on every `changed` (re)layout.
+  private centerItems(): void {
+    const groups = this.timelineEl.querySelectorAll<HTMLElement>(
+      ".vis-foreground .vis-group",
+    );
+    groups.forEach((group) => {
+      const items = Array.from(group.querySelectorAll<HTMLElement>(".vis-item"));
+      if (!items.length) return;
+      let minTop = Infinity;
+      let maxBottom = -Infinity;
+      for (const it of items) {
+        minTop = Math.min(minTop, it.offsetTop);
+        maxBottom = Math.max(maxBottom, it.offsetTop + it.offsetHeight);
+      }
+      const delta = Math.round((group.clientHeight - (maxBottom - minTop)) / 2 - minTop);
+      // vis positions items horizontally with `transform: translateX(...)`, so we
+      // must preserve that and only append our vertical shift (strip any prior
+      // translateY first; vis resets transform to translateX on each reposition).
+      for (const it of items) {
+        const baseX = it.style.transform.replace(/\s*translateY\([^)]*\)/, "");
+        it.style.transform = delta ? `${baseX} translateY(${delta}px)` : baseX;
+      }
+    });
   }
 
   // ------------------------------------------------------------ internal state
