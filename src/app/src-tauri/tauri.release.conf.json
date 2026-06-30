@@ -3,8 +3,8 @@
   "bundle": {
     "targets": ["msi"],
     "resources": {
-      "runtime/python/**": "python/",
-      "runtime/server/**": "server/"
+      "runtime/python/**/*": "python/",
+      "runtime/server/**/*": "server/"
     }
   }
 }
