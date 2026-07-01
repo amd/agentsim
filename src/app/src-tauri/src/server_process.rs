@@ -82,12 +82,16 @@ impl ServerProcess {
 pub fn resolve_paths(resource_dir: Option<PathBuf>) -> ServerPaths {
     if !cfg!(debug_assertions) {
         if let Some(res) = resource_dir {
+            // Array-form bundle resources preserve their source path relative to
+            // src-tauri, so the staged `runtime/` tree lands under the resource
+            // dir intact (a map form would flatten it and collide same-named
+            // files — see ICE30).
             let python = if cfg!(windows) {
-                res.join("python/python.exe")
+                res.join("runtime/python/python.exe")
             } else {
-                res.join("python/bin/python3")
+                res.join("runtime/python/bin/python3")
             };
-            let server_dir = res.join("server");
+            let server_dir = res.join("runtime/server");
             if python.exists() && server_dir.exists() {
                 return ServerPaths { python, server_dir };
             }
