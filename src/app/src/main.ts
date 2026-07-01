@@ -1,9 +1,31 @@
 import "./styles/tokens.css";
 import "./styles/components.css";
 import "./styles/app.css";
+import { invoke } from "@tauri-apps/api/core";
 import { createAppShell } from "./ui/AppShell.js";
 import { createWarmupOverlay } from "./ui/WarmupOverlay.js";
 import { waitForServer } from "./data/api.js";
+
+// Links in rendered content (markdown-parsed assistant/tool text) would otherwise
+// navigate the webview itself, replacing the app. Intercept clicks on external
+// http(s) anchors and hand them to the OS default browser via the opener plugin.
+// In browser dev there's no host, so fall back to a new tab.
+function interceptExternalLinks(): void {
+  document.addEventListener("click", (e) => {
+    const anchor = (e.target as Element | null)?.closest?.("a[href]") as HTMLAnchorElement | null;
+    if (!anchor) return;
+    const href = anchor.href;
+    if (!/^https?:\/\//i.test(href)) return;
+    e.preventDefault();
+    if ("__TAURI_INTERNALS__" in window) {
+      void invoke("plugin:opener|open_url", { url: href }).catch((err) =>
+        console.error("[links] open_url failed", err),
+      );
+    } else {
+      window.open(href, "_blank", "noopener");
+    }
+  });
+}
 
 // Entry point. The Rust host spawns the Python backend at launch, but it may not
 // be listening yet (slow cold start), so we show a warm-up overlay and only
@@ -26,6 +48,8 @@ async function boot(root: HTMLElement): Promise<void> {
   overlay.remove();
   root.append(createAppShell());
 }
+
+interceptExternalLinks();
 
 const root = document.getElementById("app");
 if (root) void boot(root);
