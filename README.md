@@ -34,8 +34,9 @@ nothing to export or configure.
 | Source | Reads from | Status |
 | --- | --- | --- |
 | Claude Code | `~/.claude/projects/<project>/<id>.jsonl` | Supported |
-
-More tools are on the way.
+| Codex | `~/.codex/sessions` | Work in progress |
+| Cursor | `~/.cursor/projects/<project>/agent-transcripts/<id>/<id>.jsonl` | Work in progress |
+| PIAgent | — | Work in progress |
 
 ## Getting started
 
