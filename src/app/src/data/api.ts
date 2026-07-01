@@ -9,6 +9,26 @@ import type { Span } from "../timeline/index.js";
 
 const BASE = "http://localhost:4317";
 
+// Poll the server until it answers, or until `timeoutMs` elapses. The bundled
+// Python cold-starts slowly on first launch (Defender scan + .pyc compilation),
+// so the renderer must wait for the backend instead of firing requests that
+// fail with connection-refused. Resolves true once reachable, false on timeout.
+export async function waitForServer(
+  { timeoutMs = 60000, intervalMs = 400 }: { timeoutMs?: number; intervalMs?: number } = {},
+): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    try {
+      const res = await fetch(`${BASE}/frameworks`);
+      if (res.ok) return true;
+    } catch {
+      // Connection refused — server not listening yet; keep polling.
+    }
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  }
+  return false;
+}
+
 // Wire shape of SessionMetadata (server-side field names).
 interface WireSession {
   session_id: string;

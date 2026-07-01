@@ -948,3 +948,37 @@ html, body {
 }
 .tl-mini-window:hover { background: rgba(250, 204, 21, 0.24); }
 .tl-mini-window.dragging { cursor: grabbing; background: rgba(250, 204, 21, 0.28); }
+
+/* --- Warm-up overlay (shown until the backend is reachable) --------------- */
+.warmup-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 3000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-primary);
+}
+
+.warmup-body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+}
+
+.warmup-message {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+.warmup-retry {
+    padding: 6px 16px;
+    font-size: 0.85rem;
+    color: var(--text-primary);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-primary);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+}
+.warmup-retry:hover { background: var(--bg-tertiary); }
