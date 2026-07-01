@@ -1,5 +1,7 @@
+use std::fs::OpenOptions;
+use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::process::{Child, Command};
+use std::process::{Child, Command, Stdio};
 use std::sync::Mutex;
 
 // ServerProcess owns the Python (FastAPI/uvicorn) server child process. This is
@@ -36,7 +38,23 @@ impl ServerProcess {
         let python = &paths.python;
         let server_dir = &paths.server_dir;
 
+        log(&format!(
+            "start: python={} (exists={}) server_dir={} (exists={})",
+            python.display(),
+            python.exists(),
+            server_dir.display(),
+            server_dir.exists(),
+        ));
         println!("[host] starting python server: {} -m app.main", python.display());
+
+        // Send the child's stdout/stderr to the host log so server-side startup
+        // failures (missing deps, import errors) are visible after install,
+        // where the GUI app has no console. Fall back to inheriting if the log
+        // file can't be opened.
+        let (stdout, stderr) = match (open_log(), open_log()) {
+            (Some(o), Some(e)) => (Stdio::from(o), Stdio::from(e)),
+            _ => (Stdio::inherit(), Stdio::inherit()),
+        };
 
         // No --config-dir: config.json defaults to ~/.cache/.agent-sim. The
         // active set starts empty; the user adds data sources from the app.
@@ -46,15 +64,19 @@ impl ServerProcess {
             .arg("app.main")
             .arg("--port")
             .arg("4317")
+            .stdout(stdout)
+            .stderr(stderr)
             .spawn();
 
         match result {
             Ok(child) => {
+                log(&format!("spawned python server (pid={})", child.id()));
                 *self.child.lock().unwrap() = Some(child);
             }
             Err(err) => {
                 // Don't crash the UI if the server fails to start; the frontend
                 // already shows a friendly "cannot reach server" message.
+                log(&format!("failed to spawn python server: {err}"));
                 eprintln!("[host] failed to start python server: {err}");
             }
         }
@@ -80,8 +102,13 @@ impl ServerProcess {
 //
 // `resource_dir` is the Tauri-resolved resource directory (None when unavailable).
 pub fn resolve_paths(resource_dir: Option<PathBuf>) -> ServerPaths {
+    log(&format!(
+        "resolve_paths: debug_assertions={} resource_dir={:?}",
+        cfg!(debug_assertions),
+        resource_dir,
+    ));
     if !cfg!(debug_assertions) {
-        if let Some(res) = resource_dir {
+        if let Some(res) = &resource_dir {
             // Array-form bundle resources preserve their source path relative to
             // src-tauri, so the staged `runtime/` tree lands under the resource
             // dir intact (a map form would flatten it and collide same-named
@@ -92,16 +119,51 @@ pub fn resolve_paths(resource_dir: Option<PathBuf>) -> ServerPaths {
                 res.join("runtime/python/bin/python3")
             };
             let server_dir = res.join("runtime/server");
+            log(&format!(
+                "bundled candidate: python={} (exists={}) server_dir={} (exists={})",
+                python.display(),
+                python.exists(),
+                server_dir.display(),
+                server_dir.exists(),
+            ));
             if python.exists() && server_dir.exists() {
+                log("using bundled runtime");
                 return ServerPaths { python, server_dir };
             }
         }
     }
 
     let repo_root = repo_root();
+    log(&format!("falling back to repo runtime at {}", repo_root.display()));
     ServerPaths {
         python: python_executable(&repo_root),
         server_dir: repo_root.join("src/server"),
+    }
+}
+
+// Where the host writes its diagnostic log. Program Files is not writable by a
+// normal user, so log under LOCALAPPDATA (temp dir as a last resort).
+fn log_path() -> PathBuf {
+    let base = std::env::var_os("LOCALAPPDATA")
+        .map(PathBuf::from)
+        .unwrap_or_else(std::env::temp_dir);
+    base.join("AgentSim").join("host.log")
+}
+
+// Open the log file for appending (creating dirs as needed). Returns None if it
+// can't be opened, so callers can silently degrade rather than crash the UI.
+fn open_log() -> Option<std::fs::File> {
+    let path = log_path();
+    if let Some(parent) = path.parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    OpenOptions::new().create(true).append(true).open(path).ok()
+}
+
+// Append a single line to the host log. Best-effort: failures are ignored.
+fn log(msg: &str) {
+    if let Some(mut f) = open_log() {
+        let _ = writeln!(f, "[host] {msg}");
     }
 }
 
