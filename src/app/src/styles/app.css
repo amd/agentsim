@@ -473,10 +473,18 @@ html, body {
 }
 
 .conversation-title {
+    flex: 1;
+    min-width: 0;
     font-size: 0.8rem;
     font-weight: 500;
     line-height: 1.3;
     color: var(--text-primary);
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow: hidden;
+    overflow-wrap: anywhere;
 }
 
 .live-dot {

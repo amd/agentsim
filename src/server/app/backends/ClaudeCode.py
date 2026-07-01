@@ -224,6 +224,7 @@ class ClaudeCode(AgenticFramework):
                 continue
 
             title = None
+            first_user_message = None
             created = None
             modified = None
             project_path = ""
@@ -232,8 +233,13 @@ class ClaudeCode(AgenticFramework):
                 rtype = record.get("type")
                 if rtype == "ai-title":
                     title = record.get("aiTitle")
-                elif rtype == "user" and created is None:
-                    created = record.get("timestamp")
+                elif rtype == "user":
+                    if created is None:
+                        created = record.get("timestamp")
+                    if first_user_message is None:
+                        content = (record.get("message") or {}).get("content")
+                        if isinstance(content, str) and content.strip():
+                            first_user_message = content.strip()
                 elif rtype == "assistant" and record.get("timestamp"):
                     modified = record.get("timestamp")
                 # cwd/model can appear on several record types; take the first cwd
@@ -246,7 +252,7 @@ class ClaudeCode(AgenticFramework):
 
             sessions.append(SessionMetadata(
                 session_id=session_id,
-                title=title or session_id,
+                title=title or first_user_message or session_id,
                 data_path=path,
                 is_live=_is_live(path),
                 project_path=project_path,
