@@ -1,8 +1,16 @@
 use std::fs::OpenOptions;
 use std::io::Write;
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::Mutex;
+
+// Windows process creation flag: run the child without allocating a console
+// window. Without it, a GUI-subsystem parent spawning console python.exe flashes
+// a stray console window on screen.
+#[cfg(windows)]
+const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
 // ServerProcess owns the Python (FastAPI/uvicorn) server child process. This is
 // the heart of the "desktop host embeds the daemon" idea: when the Tauri app
@@ -58,15 +66,17 @@ impl ServerProcess {
 
         // No --config-dir: config.json defaults to ~/.cache/.agent-sim. The
         // active set starts empty; the user adds data sources from the app.
-        let result = Command::new(python)
-            .current_dir(server_dir)
+        let mut cmd = Command::new(python);
+        cmd.current_dir(server_dir)
             .arg("-m")
             .arg("app.main")
             .arg("--port")
             .arg("4317")
             .stdout(stdout)
-            .stderr(stderr)
-            .spawn();
+            .stderr(stderr);
+        #[cfg(windows)]
+        cmd.creation_flags(CREATE_NO_WINDOW);
+        let result = cmd.spawn();
 
         match result {
             Ok(child) => {
