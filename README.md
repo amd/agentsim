@@ -1,118 +1,48 @@
-# agent-sim — visualize agentic-coding sessions on a timeline
+# AgentSim — visualize your agentic-coding sessions on a timeline
 
-A desktop app that reads the transcripts your agentic coding tools leave behind
-(Claude Code, Cursor, …) and lays each session out on a GarageBand-style
-timeline of messages, thinking, and tool calls. It is **read-only**: it displays
-and plays back sessions, it never modifies them.
+<img src="doc/main_screen.png" alt="AgentSim main screen" width="600" />
 
-## The shape
+AgentSim reads the transcripts your agentic coding tools leave behind and lays
+each session out on a GarageBand-style timeline of messages, thinking, and tool
+calls. See how a session actually unfolded — what the agent read, when it
+thought, which tools it fired, and how long each step took.
 
-```
-  Desktop UI (Tauri + vanilla TS) ──┐
-                                     ├─ HTTP ─▶  Python server  ─▶  Registry  ─▶  Framework backends
-  (browser dev: Vite) ──────────────┘            (port 4317)                     (ClaudeCode | Cursor | Codex)
-```
+It is **read-only**: it displays and plays back your sessions, it never modifies
+them.
 
-The **server owns all data**: loading transcripts, merging across frameworks,
-filtering, and sorting. The frontend is a thin view — it sends filter state and
-renders whatever comes back. Adding support for another tool means adding one
-backend class; nothing else changes.
+## What you can do
 
-| Folder | What it is |
-| --- | --- |
-| `src/app` | Tauri desktop app: vanilla-TS frontend (`src/`) + Rust host (`src-tauri/`) |
-| `src/server` | Python/FastAPI server: HTTP API + framework registry + backends |
-| `src_future/cli` | CLI client (work in progress) |
-| `reference/` | Read-only design reference (Lemonade UI) — not built |
-| `scripts/` | Windows launch helpers (`run_app.bat`, `run_web.bat`) |
+- **See every session on one timeline.** Each session becomes a track; each
+  message, thinking block, and tool call becomes a span you can scan at a
+  glance.
+- **Play a session back.** Step through a session in order and watch it replay
+  the way it originally ran.
+- **Zoom and pan.** Cursor-anchored wheel zoom and drag-to-scroll let you go
+  from a whole day of work down to a single tool call.
+- **Filter to what matters.** Narrow the view by tool, model, project, or time
+  range, and jump straight to live/in-progress sessions.
+- **Drill into a session.** Open any session to see its full trace — the
+  complete sequence of spans with their timing.
+- **Manage your data sources.** Add or remove sources from **File → Manage Data
+  Sources** (auto-detected or added by path). Your choices persist between runs.
 
-## Frameworks (data sources)
+## Data sources
 
-Each backend under `src/server/app/backends/` reads one tool's sessions and
-translates them into the shared wire types.
+AgentSim reads sessions straight from where your tools already store them —
+nothing to export or configure.
 
-| Backend | Reads from | Status |
+| Source | Reads from | Status |
 | --- | --- | --- |
-| Claude Code | `~/.claude/projects/<project>/<id>.jsonl` | Full parsing |
-| Cursor | `~/.cursor/projects/<project>/agent-transcripts/<id>/<id>.jsonl` | Full parsing |
-| Codex | `~/.codex/sessions` | Scaffold (no parsing yet) |
+| Claude Code | `~/.claude/projects/<project>/<id>.jsonl` | Supported |
 
-Data sources are managed at runtime from **File → Manage Data Sources**
-(auto-detected or added by path). The active set is persisted to
-`~/.cache/agent-sim/config.json`.
+More tools are on the way.
 
-## Prerequisites
+## Getting started
 
-- **Python 3.10+** and **pip** — runs the server.
-- **Node.js 20+** and **npm** — runs the frontend and the Tauri tooling.
-- **Rust** — only for the full desktop app (`tauri:dev`). Not needed for the
-  server or the browser workflow.
-  - Install via rustup: https://rustup.rs (Windows: `winget install Rustlang.Rustup`),
-    then restart your terminal and confirm `cargo --version`.
-  - Windows also needs the **WebView2 runtime** (preinstalled on Win11) and the
-    MSVC "Desktop development with C++" build tools.
+1. Download the latest Windows release from the **Releases** section in the
+   sidebar on the right.
+2. Run the installer.
+3. Open the app and go to **File → Add Data Source**, then pick a
+   supported/detected backend.
 
-## Setup
-
-```bash
-npm install              # frontend dependencies
-npm run server:install   # installs the server's Python deps (FastAPI/uvicorn)
-```
-
-> Tip: create a virtualenv first so the server deps stay isolated —
-> `python -m venv .venv`, then activate it.
-
-## Run it — two ways
-
-### 1. Server + UI in a browser (no Rust)
-
-```bash
-npm run dev               # starts the Python server AND the Vite frontend
-# open the URL Vite prints (default http://localhost:1420)
-```
-
-### 2. Full desktop app (needs Rust)
-
-```bash
-npm run app:icons         # one time: generates app icons
-npm run tauri:dev         # opens the desktop window;
-                          # the Rust host launches the Python server for you
-```
-
-### Poke the API directly
-
-```bash
-npm run dev:server        # python -m app.main  (serves on :4317)
-curl http://localhost:4317/health
-curl http://localhost:4317/sessions
-curl http://localhost:4317/sessions/facets
-```
-
-FastAPI also serves interactive API docs at http://localhost:4317/docs.
-
-The server defaults its config to `~/.cache/agent-sim`; override with
-`python -m app.main --config-dir <dir>` (and `--port`) for an isolated run.
-
-## Key HTTP endpoints
-
-| Endpoint | Returns |
-| --- | --- |
-| `GET /sessions` | Merged, sorted session list. Filters: `framework`, `model`, `project`, `live`, `from`/`to` (all optional) |
-| `GET /sessions/facets` | Distinct frameworks / models / projects with counts, for the filter UI |
-| `GET /frameworks` | Active data sources |
-| `GET /frameworks/detected` | Auto-detected, not-yet-active sources |
-| `POST /frameworks/validate` | Check a path holds readable sessions before adding |
-| `POST /frameworks` · `DELETE /frameworks/{alias}` | Add / remove a data source |
-| `GET /frameworks/{alias}/sessions/{id}` | Full span trace for one session |
-
-## Handy scripts
-
-| Script | Does |
-| --- | --- |
-| `npm run server:install` | Install the server's Python deps. |
-| `npm run dev:server` | Run the Python/FastAPI server. |
-| `npm run dev:app` | Run only the Vite frontend. |
-| `npm run dev` | Run server + frontend together. |
-| `npm run tauri:dev` | Run the full desktop app (Rust host spawns the server). |
-| `npm run typecheck` | Type-check the TS workspaces. |
-| `npm run build` | Build the frontend (tsc + Vite). |
+> **Windows only** for now — other platforms are on the way.
