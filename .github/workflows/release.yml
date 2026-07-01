@@ -59,5 +59,6 @@ jobs:
         with:
           tag_name: v${{ steps.ver.outputs.version }}-${{ github.run_number }}
           name: AgentSim v${{ steps.ver.outputs.version }}
+          body_path: release/RELEASE_NOTES.md
           files: release/dist/*.msi
           fail_on_unmatched_files: true
