@@ -3,7 +3,7 @@
 ![main_screen.png](doc/main_screen.png)
 
 AgentSim reads the transcripts your agentic coding tools leave behind and lays
-each session out on a GarageBand-style timeline of messages, thinking, and tool
+each session out on a timeline of messages, thinking, and tool
 calls. See how a session actually unfolded — what the agent read, when it
 thought, which tools it fired, and how long each step took.
 
