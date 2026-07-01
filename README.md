@@ -1,6 +1,6 @@
 # AgentSim — visualize your agentic-coding sessions on a timeline
 
-<img src="doc/main_screen.png" alt="AgentSim main screen" width="600" />
+![main_screen.png](doc/main_screen.png)
 
 AgentSim reads the transcripts your agentic coding tools leave behind and lays
 each session out on a GarageBand-style timeline of messages, thinking, and tool
