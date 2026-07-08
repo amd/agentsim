@@ -23,7 +23,36 @@ if not "%branch%"=="main" (
   exit /b 1
 )
 
-REM 3. Publish main, then fast-forward the remote releases branch to it. A plain
+REM 3. Ask for the version to publish. CI (release.yml) tags/names the GitHub
+REM    Release from tauri.conf.json's version, so bumping it here is what actually
+REM    sets the released version. The two package.json files are kept in sync.
+for /f "delims=" %%v in ('powershell -NoProfile -Command "(Get-Content src/app/src-tauri/tauri.conf.json -Raw | ConvertFrom-Json).version"') do set "current=%%v"
+set "version="
+set /p "version=[release] version to publish (current %current%): "
+if not defined version (
+  echo [release] no version entered. Aborting.
+  exit /b 1
+)
+echo %version%| findstr /r "^[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*$" >nul
+if errorlevel 1 (
+  echo [release] '%version%' is not a valid x.y.z version.
+  exit /b 1
+)
+
+if not "%version%"=="%current%" (
+  echo [release] bumping %current% -^> %version%...
+  for %%f in ("package.json" "src\app\package.json" "src\app\src-tauri\tauri.conf.json") do (
+    powershell -NoProfile -Command "$p='%%~f'; $c=Get-Content $p -Raw; $c=$c -replace '\"version\":\s*\"%current%\"', '\"version\": \"%version%\"'; Set-Content -NoNewline $p $c"
+    if errorlevel 1 exit /b 1
+  )
+  git add package.json src/app/package.json src/app/src-tauri/tauri.conf.json
+  git commit -m "release v%version%"
+  if errorlevel 1 exit /b 1
+) else (
+  echo [release] version unchanged; publishing existing v%version%.
+)
+
+REM 4. Publish main, then fast-forward the remote releases branch to it. A plain
 REM    push refuses non-fast-forwards, so this can't clobber unmerged release work.
 echo [release] pushing main...
 git push origin main
@@ -36,12 +65,12 @@ if errorlevel 1 (
   exit /b 1
 )
 
-REM 4. Keep the local releases ref in sync so it isn't left behind main.
+REM 5. Keep the local releases ref in sync so it isn't left behind main.
 git branch -f releases main
 
 echo [release] release triggered. CI is building the .msi.
 
-REM 5. If the GitHub CLI is present, follow the run; otherwise print where to look.
+REM 6. If the GitHub CLI is present, follow the run; otherwise print where to look.
 where gh >nul 2>nul
 if errorlevel 1 (
   echo [release] install GitHub CLI ^(gh^) to auto-watch, or check the Actions tab.
