@@ -64,7 +64,7 @@ impl ServerProcess {
             _ => (Stdio::inherit(), Stdio::inherit()),
         };
 
-        // No --config-dir: config.json defaults to ~/.cache/.agent-sim. The
+        // No --config-dir: config.json defaults to ~/.cache/AgentSim. The
         // active set starts empty; the user adds data sources from the app.
         let mut cmd = Command::new(python);
         cmd.current_dir(server_dir)

@@ -47,7 +47,7 @@ def _parse_ts(timestamp: str) -> datetime | None:
 
 
 def create_app(registry: FrameworkRegistry) -> FastAPI:
-    app = FastAPI(title="agent-sim")
+    app = FastAPI(title="AgentSim")
 
     app.add_middleware(
         CORSMiddleware,

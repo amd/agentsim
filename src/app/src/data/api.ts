@@ -1,4 +1,4 @@
-// HTTP client for the agent-sim server. The backend owns all data loading,
+// HTTP client for the AgentSim server. The backend owns all data loading,
 // management, and filtering; this module just builds requests from filter state
 // and maps the wire types into the UI's Conversation model.
 

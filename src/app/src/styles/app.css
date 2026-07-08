@@ -1,5 +1,5 @@
 /* ============================================================================
-   App layout — agent-sim shell (Lemonade-styled).
+   App layout — AgentSim shell (Lemonade-styled).
    Layout-only rules. Colors/spacing come from tokens.css; reuse .lm-* where
    possible (see components.css). Never hardcode a color here — use var(--token).
    ============================================================================ */
