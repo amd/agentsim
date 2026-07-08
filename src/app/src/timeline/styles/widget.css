@@ -160,6 +160,25 @@
   font-weight: 600;
 }
 .tlw .vis-item .vis-item-content { padding: 4px 8px; }
+
+/* Enlarge the clickable target for very short bars (e.g. 0.1s spans) without
+   widening the visible bar. A transparent, horizontally-centered overlay
+   guarantees a minimum hit width; pointer events on it still resolve to the
+   host .vis-item (vis walks event.target up to the item element), so tiny bars
+   become easy to click while the colored bar keeps its true width. vis already
+   positions .vis-item absolutely, so it's the pseudo-element's offset parent. */
+.tlw .vis-item.vis-range::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 100%;
+  min-width: 16px;
+  transform: translateX(-50%);
+  background: transparent;
+}
+
 .tlw .vis-item.vis-selected {
   box-shadow: 0 0 0 2px var(--lemon-amber) inset;
   border-color: var(--lemon-amber);
