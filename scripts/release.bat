@@ -42,7 +42,7 @@ if errorlevel 1 (
 if not "%version%"=="%current%" (
   echo [release] bumping %current% -^> %version%...
   for %%f in ("package.json" "src\app\package.json" "src\app\src-tauri\tauri.conf.json") do (
-    powershell -NoProfile -Command "$p='%%~f'; $c=Get-Content $p -Raw; $c=$c -replace '\"version\":\s*\"%current%\"', '\"version\": \"%version%\"'; Set-Content -NoNewline $p $c"
+    powershell -NoProfile -Command "$p=(Resolve-Path -LiteralPath '%%~f').Path; $c=[IO.File]::ReadAllText($p); $c=$c -replace '\"version\":\s*\"%current%\"', '\"version\": \"%version%\"'; [IO.File]::WriteAllText($p, $c)"
     if errorlevel 1 exit /b 1
   )
   git add package.json src/app/package.json src/app/src-tauri/tauri.conf.json
