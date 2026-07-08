@@ -33,6 +33,10 @@ class FrameworkRegistry:
         # Remember the path each active framework was added with (``None`` = its
         # own default) so persistence round-trips the original intent.
         self._paths: dict[str, str | None] = {}
+        # True until the app finishes its first startup. Drives one-time UI (the
+        # client auto-opens Manage Data Sources on first launch). A missing/absent
+        # value means first startup, so it defaults to True.
+        self.is_first_startup: bool = True
 
     # --- catalog -------------------------------------------------------------
     def available(self) -> list[type[AgenticFramework]]:
@@ -81,6 +85,7 @@ class FrameworkRegistry:
             try:
                 data = json.loads(self._state_path.read_text(encoding="utf-8"))
                 entries = data.get("active") or []
+                self.is_first_startup = bool(data.get("is_first_startup", True))
             except (OSError, json.JSONDecodeError) as error:
                 print(f"[registry] failed to read {self._state_path}: {error}")
 
@@ -96,8 +101,19 @@ class FrameworkRegistry:
             except ValueError:
                 pass  # duplicate in the state file; ignore
 
+    def mark_startup_complete(self) -> None:
+        """Record that the app has finished its first startup so first-run-only UI
+        fires only once. Idempotent — a no-op once already cleared."""
+        if not self.is_first_startup:
+            return
+        self.is_first_startup = False
+        self.save()
+
     def save(self) -> None:
-        payload = {"active": [{"alias": a, "path": self._paths.get(a)} for a in self.active]}
+        payload = {
+            "is_first_startup": self.is_first_startup,
+            "active": [{"alias": a, "path": self._paths.get(a)} for a in self.active],
+        }
         try:
             self._state_path.parent.mkdir(parents=True, exist_ok=True)
             self._state_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")

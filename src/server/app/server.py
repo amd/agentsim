@@ -91,6 +91,17 @@ def create_app(registry: FrameworkRegistry) -> FastAPI:
     def health() -> dict[str, object]:
         return {"status": "ok", "frameworks": sorted(registry.active)}
 
+    @app.get("/config")
+    def get_config() -> dict[str, object]:
+        """Client-facing app config. ``is_first_startup`` drives the one-time
+        auto-open of Manage Data Sources on first launch."""
+        return {"is_first_startup": registry.is_first_startup}
+
+    @app.post("/config/startup-complete", status_code=204)
+    def startup_complete() -> None:
+        """Clear the first-startup flag once the client has handled first-run UI."""
+        registry.mark_startup_complete()
+
     @app.get("/frameworks")
     def list_frameworks() -> list[FrameworkInfo]:
         """The active frameworks (data sources) currently being served."""

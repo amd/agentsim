@@ -4,7 +4,7 @@ import "./styles/app.css";
 import { invoke } from "@tauri-apps/api/core";
 import { createAppShell } from "./ui/AppShell.js";
 import { createWarmupOverlay } from "./ui/WarmupOverlay.js";
-import { waitForServer } from "./data/api.js";
+import { fetchConfig, markStartupComplete, waitForServer } from "./data/api.js";
 
 // Links in rendered content (markdown-parsed assistant/tool text) would otherwise
 // navigate the webview itself, replacing the app. Intercept clicks on external
@@ -47,6 +47,22 @@ async function boot(root: HTMLElement): Promise<void> {
 
   overlay.remove();
   root.append(createAppShell());
+  void maybeOpenFirstStartup();
+}
+
+// On the very first launch the active data-source set is empty, so open Manage
+// Data Sources once to guide setup. The flag lives in the server config; clearing
+// it here ensures this fires only on first startup. Reuses the same event the
+// File menu dispatches, so the AppShell listener (already attached) opens it.
+async function maybeOpenFirstStartup(): Promise<void> {
+  try {
+    const { is_first_startup } = await fetchConfig();
+    if (!is_first_startup) return;
+    window.dispatchEvent(new CustomEvent("file:manage-data-sources"));
+    await markStartupComplete();
+  } catch (err) {
+    console.warn("[startup] first-run check failed", err);
+  }
 }
 
 interceptExternalLinks();

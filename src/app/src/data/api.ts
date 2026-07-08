@@ -29,6 +29,25 @@ export async function waitForServer(
   return false;
 }
 
+// Client-facing app config mirrored from the server (config.json).
+export interface AppConfig {
+  is_first_startup: boolean;
+}
+
+// Read the app config. `is_first_startup` is true until the client marks startup
+// complete; it drives the one-time auto-open of Manage Data Sources.
+export async function fetchConfig(): Promise<AppConfig> {
+  const res = await fetch(`${BASE}/config`);
+  if (!res.ok) throw new Error(`GET /config failed: ${res.status}`);
+  return (await res.json()) as AppConfig;
+}
+
+// Clear the first-startup flag on the server after handling first-run UI.
+export async function markStartupComplete(): Promise<void> {
+  const res = await fetch(`${BASE}/config/startup-complete`, { method: "POST" });
+  if (!res.ok) throw new Error(`POST /config/startup-complete failed: ${res.status}`);
+}
+
 // Wire shape of SessionMetadata (server-side field names).
 interface WireSession {
   session_id: string;
