@@ -71,6 +71,7 @@ export class TimelineWidget {
   private detachInteractions: () => void = () => {};
   private interactionBounds!: InteractionBounds;
   private projection!: Projection;
+  private resizeObserver?: ResizeObserver;
 
   /** Real ms -> on-screen ms; reads the live projection, so it stays correct
       across rebuilds. Passed to `buildItems` (items live in compressed space). */
@@ -394,6 +395,7 @@ export class TimelineWidget {
   }
 
   destroy(): void {
+    this.resizeObserver?.disconnect();
     this.detachInteractions();
     this.emitter.clear();
     this.timeline.destroy();
@@ -517,6 +519,22 @@ export class TimelineWidget {
       fmt: (ms) => this.fmt(ms),
     });
     this.breakMarkers.render();
+
+    // vis-timeline measures its container only at construction and on the window
+    // `resize` event — it does NOT observe parent-driven size changes (the host
+    // block-info panel toggling, a session switch that clears/refills the mount,
+    // sidebar show/hide). When the mount resizes for any of those reasons vis
+    // keeps its stale height and renders the chart collapsed into a fraction of
+    // the panel. Observe the mount and redraw (coalesced to a frame) so it always
+    // fills the current space.
+    if (typeof ResizeObserver !== "undefined") {
+      let raf = 0;
+      this.resizeObserver = new ResizeObserver(() => {
+        cancelAnimationFrame(raf);
+        raf = requestAnimationFrame(() => this.timeline?.redraw());
+      });
+      this.resizeObserver.observe(this.timelineEl);
+    }
 
     // Initial window is set now, so empty rows can be filtered for the first paint.
     this.refreshRowVisibility();
