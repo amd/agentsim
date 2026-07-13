@@ -17,13 +17,14 @@ from pathlib import Path
 from app.backends.AgenticFramework import AgenticFramework
 from app.backends.ClaudeCode import ClaudeCode
 from app.backends.Hermes import Hermes
+from app.backends.Pi import Pi
 # Temporarily disabled for release.
 # from app.backends.Codex import Codex
 # from app.backends.Cursor import Cursor
 
 # The catalog: every framework type the server can build, keyed by alias.
 AVAILABLE: dict[str, type[AgenticFramework]] = {
-    cls.alias: cls for cls in (ClaudeCode, Hermes)  # Cursor, Codex temporarily disabled for release
+    cls.alias: cls for cls in (ClaudeCode, Hermes, Pi)  # Cursor, Codex temporarily disabled for release
 }
 
 
