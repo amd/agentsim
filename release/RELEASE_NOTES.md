@@ -1,5 +1,8 @@
 ## AgentSim
 
+0.1.2:
+Added Hermes Agent and Pi Agens data sources support.
+
 0.1.1:
 Added welcome window on first startup. Improved usability.
 
