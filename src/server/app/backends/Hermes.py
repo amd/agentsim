@@ -13,7 +13,7 @@ info, timestamps, title) and ``messages`` (one row per turn -- role, content,
 ``messages.session_id``.
 
 Because Hermes records a real timestamp on every message there is no timing to
-synthesize (contrast ``Cursor.py``): a span *ends* at its own record timestamp
+synthesize: a span *ends* at its own record timestamp
 and *starts* where the previous span ended -- the same model ``ClaudeCode.py``
 uses, only here the timestamps are read straight from the DB instead of walking a
 parent chain. Tool results live in their own ``role='tool'`` rows and are folded
