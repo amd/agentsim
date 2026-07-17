@@ -92,6 +92,8 @@ class Pi(AgenticFramework):
     alias = "pi"
     default_data_basepath = Path.home() / ".pi" / "agent" / "sessions"
     primary_color = "#9CA3AF"
+
+
     remove_model_nameprefix = ""
 
     def __init__(self, data_dir: Path | str | None = None) -> None:

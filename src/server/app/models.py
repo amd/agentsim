@@ -59,12 +59,6 @@ class SessionMetadata(BaseModel):
     timestamp_created: str
     timestamp_modified: str
 
-    # to be added
-    # message counts
-    # tokens usage
-    # estimated cost
-    # duration
-
 
 class SessionTrace(BaseModel):
     """The full trace for one session: its id plus every span in order."""

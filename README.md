@@ -15,8 +15,6 @@ nothing to export or configure.
 | Source | Reads from | Status |
 | --- | --- | --- |
 | Claude Code | `~/.claude/projects/<project>/<id>.jsonl` | Supported |
-| Codex | `~/.codex/sessions` | Work in progress |
-| Cursor | `~/.cursor/projects/<project>/agent-transcripts/<id>/<id>.jsonl` | Work in progress |
 | Hermes | `~/.hermes/state.db` (`%LOCALAPPDATA%\hermes\state.db` on Windows) | Supported |
 | Pi | `~/.pi/agent/sessions/<project>/<id>.jsonl` | Supported |
 
@@ -30,6 +28,6 @@ nothing to export or configure.
 > **Windows only** for now — other platforms will be supported soon.
 
 ## Future direction
-- Extending support to Gaia, Cursor, Codex, OpenCode
-- Adding session analysis/stats with AI Analytics
-- 
+- Extending support to Gaia, Cursor, Codex, and OpenCode
+- Adding session analysis and stats with AI-driven analytics
+- Cross-platform support beyond Windows

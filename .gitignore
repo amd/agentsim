@@ -30,5 +30,3 @@ data/*
 .idea
 src_future
 /src/app/src-tauri/icons/
-
-research/
