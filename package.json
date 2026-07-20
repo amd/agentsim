@@ -1,6 +1,6 @@
 {
   "name": "agentsim",
-  "version": "0.1.2",
+  "version": "0.1.4",
   "private": true,
   "license": "MIT",
   "description": "AgentSim: visualize your agentic-coding sessions on a timeline. Tauri + TypeScript frontend, Python/FastAPI backend.",
