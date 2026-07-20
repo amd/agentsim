@@ -1,5 +1,8 @@
 ## AgentSim
 
+0.1.3:
+Fixed minor bugs and improved performance.
+
 0.1.2:
 Added Hermes Agent and Pi Agens data sources support.
 
