@@ -27,6 +27,39 @@ nothing to export or configure.
 
 > **Windows only** for now — other platforms will be supported soon.
 
+## For developers
+
+Run AgentSim locally from source.
+
+### Prerequisites
+- **Node.js 20+** (provides `npm`)
+- **Rust toolchain** (`cargo`) — required for the Tauri desktop host
+- **Python 3.11+** — required for the FastAPI backend
+
+### Setup
+```bash
+git clone https://github.com/amd/agentsim.git
+cd agentsim
+
+npm install            # installs frontend + Tauri CLI (npm workspace)
+npm run server:install # installs the Python server dependencies
+npm run app:icons      # generates the Tauri app icons (not committed to git)
+```
+
+### Run
+From the repo root:
+
+```bash
+# Desktop app (native Tauri window) — the Rust host starts/stops the Python server itself
+scripts\run_app.bat        # or: npm run tauri:dev
+
+# Web mode (FastAPI server + Vite UI in the browser at http://localhost:1420)
+scripts\run_web.bat        # or: npm run dev
+```
+
+> The first `run_app` launch is slow — Cargo compiles the Rust `src-tauri`
+> crate from scratch. Later runs are cached and fast.
+
 ## Future direction
 - Extending support to Gaia, Cursor, Codex, and OpenCode
 - Adding session analysis and stats with AI-driven analytics
