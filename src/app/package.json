@@ -1,6 +1,6 @@
 {
   "name": "@agentsim/app",
-  "version": "0.1.4",
+  "version": "0.1.3",
   "private": true,
   "description": "The AgentSim Tauri desktop app: a TypeScript frontend (renderer) plus a Rust host in src-tauri.",
   "type": "module",
