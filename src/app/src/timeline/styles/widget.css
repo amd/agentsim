@@ -1,3 +1,7 @@
+/* Copyright (c) 2026 Advanced Micro Devices, Inc. All rights reserved. */
+/* */
+/* See LICENSE for license information. */
+
 /* Timeline widget chrome. Everything is scoped under `.tlw` and uses classes
    (no IDs) so multiple widgets can coexist in one page. Colors/radii/type come
    from the Lemonade tokens (tokens.css) — never hardcode. */

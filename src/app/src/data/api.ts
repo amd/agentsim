@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Advanced Micro Devices, Inc. All rights reserved.
+//
+// See LICENSE for license information.
+
 // HTTP client for the AgentSim server. The backend owns all data loading,
 // management, and filtering; this module just builds requests from filter state
 // and maps the wire types into the UI's Conversation model.

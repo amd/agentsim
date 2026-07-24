@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Advanced Micro Devices, Inc. All rights reserved.
+//
+// See LICENSE for license information.
+
 // Prevents an extra console window from opening on Windows in release builds.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 

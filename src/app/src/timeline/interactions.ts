@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Advanced Micro Devices, Inc. All rights reserved.
+//
+// See LICENSE for license information.
+
 /* Cursor-anchored wheel zoom + vertical drag-to-scroll, ported as an attachable
    unit. vis owns horizontal pan (native drag); we reclaim the plain wheel for
    zoom in the capture phase and add Y-axis drag-to-scroll. vis runs on a plain

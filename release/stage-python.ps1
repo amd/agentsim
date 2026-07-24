@@ -1,3 +1,7 @@
+# Copyright (c) 2026 Advanced Micro Devices, Inc. All rights reserved.
+#
+# See LICENSE for license information.
+
 <#
 .SYNOPSIS
   Stage a self-contained Python runtime + the FastAPI server into the Tauri

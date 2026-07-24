@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Advanced Micro Devices, Inc. All rights reserved.
+//
+// See LICENSE for license information.
+
 /* Milliseconds <-> Date mapping. vis-timeline needs a Date axis; the public API
    is in milliseconds (the smallest unit), so we anchor to an arbitrary epoch and
    convert at the boundary. */

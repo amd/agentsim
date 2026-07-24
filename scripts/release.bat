@@ -1,3 +1,7 @@
+REM Copyright (c) 2026 Advanced Micro Devices, Inc. All rights reserved.
+REM
+REM See LICENSE for license information.
+
 @echo off
 REM release - cut a Windows release by advancing the `releases` branch to `main`.
 REM CI (.github\workflows\release.yml) builds and publishes the .msi on every

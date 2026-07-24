@@ -1,3 +1,7 @@
+# Copyright (c) 2026 Advanced Micro Devices, Inc. All rights reserved.
+#
+# See LICENSE for license information.
+
 """Agentic-framework backend for Hermes (Nous Research).
 
 Unlike the JSONL backends, Hermes keeps everything in a single SQLite database at

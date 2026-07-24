@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Advanced Micro Devices, Inc. All rights reserved.
+//
+// See LICENSE for license information.
+
 export interface ToolbarActions {
   fit: () => void;
   collapseAll: () => void;

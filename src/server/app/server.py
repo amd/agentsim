@@ -1,3 +1,7 @@
+# Copyright (c) 2026 Advanced Micro Devices, Inc. All rights reserved.
+#
+# See LICENSE for license information.
+
 """HTTP endpoints for the server (FastAPI).
 
 ``create_app`` is handed a :class:`FrameworkRegistry` holding the active backends.

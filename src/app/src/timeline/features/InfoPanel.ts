@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Advanced Micro Devices, Inc. All rights reserved.
+//
+// See LICENSE for license information.
+
 import { prettyType, spanDurationMs } from "../core/spans";
 import { formatClockMs } from "../core/time";
 import type { SelectEventPayload } from "../types";

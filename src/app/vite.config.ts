@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Advanced Micro Devices, Inc. All rights reserved.
+//
+// See LICENSE for license information.
+
 import { defineConfig } from "vite";
 
 // Vite is the frontend dev server + bundler. Tauri loads whatever Vite serves.

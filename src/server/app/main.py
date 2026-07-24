@@ -1,3 +1,7 @@
+# Copyright (c) 2026 Advanced Micro Devices, Inc. All rights reserved.
+#
+# See LICENSE for license information.
+
 """Entrypoint for the server daemon.
 
 Run it as a module so the ``app`` package resolves:
