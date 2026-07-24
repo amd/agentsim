@@ -1,3 +1,7 @@
+# Copyright (c) 2026 Advanced Micro Devices, Inc. All rights reserved.
+#
+# See LICENSE for license information.
+
 """Agentic-framework backend for Claude Code.
 
 The data basepath is Claude Code's home (``~/.claude``); transcripts are read

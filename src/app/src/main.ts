@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Advanced Micro Devices, Inc. All rights reserved.
+//
+// See LICENSE for license information.
+
 import "./styles/tokens.css";
 import "./styles/components.css";
 import "./styles/app.css";

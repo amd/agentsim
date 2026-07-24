@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Advanced Micro Devices, Inc. All rights reserved.
+//
+// See LICENSE for license information.
+
 //! Tauri invoke handlers backing the custom borderless title bar's window
 //! controls. Cloned 1:1 from reference/lemonade's window-control logic.
 

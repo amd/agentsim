@@ -1,3 +1,7 @@
+# Copyright (c) 2026 Advanced Micro Devices, Inc. All rights reserved.
+#
+# See LICENSE for license information.
+
 """Backend interface for an agentic framework.
 
 A backend knows how to read one tool's session data (e.g. Claude Code) and

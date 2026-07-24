@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Advanced Micro Devices, Inc. All rights reserved.
+//
+// See LICENSE for license information.
+
 // Tiny DOM helper — our stand-in for a framework. Components are plain functions
 // that build and return HTMLElements; `el` keeps that construction terse.
 

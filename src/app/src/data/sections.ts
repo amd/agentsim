@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Advanced Micro Devices, Inc. All rights reserved.
+//
+// See LICENSE for license information.
+
 // Date bucketing shared by the sidebar list grouping and the filter panel.
 
 export const DAY_MS = 86_400_000;

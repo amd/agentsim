@@ -1,3 +1,7 @@
+# Copyright (c) 2026 Advanced Micro Devices, Inc. All rights reserved.
+#
+# See LICENSE for license information.
+
 """Agentic-framework backend for Pi.
 
 The data basepath is Pi's home (``~/.pi/agent/sessions``); transcripts are

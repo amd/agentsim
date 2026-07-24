@@ -1,3 +1,7 @@
+REM Copyright (c) 2026 Advanced Micro Devices, Inc. All rights reserved.
+REM
+REM See LICENSE for license information.
+
 @echo off
 REM run_web - start the FastAPI server + web UI (Vite), then open a browser tab.
 REM Browser-only workflow (no desktop window). Close the window or Ctrl+C to stop.

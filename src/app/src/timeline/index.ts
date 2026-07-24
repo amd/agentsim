@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Advanced Micro Devices, Inc. All rights reserved.
+//
+// See LICENSE for license information.
+
 /* Public entry point for the reusable timeline widget.
    Importing this also pulls in the widget's styles (Lemonade tokens + scoped
    widget chrome) so a host only needs `import { TimelineWidget }`. */

@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Advanced Micro Devices, Inc. All rights reserved.
+//
+// See LICENSE for license information.
+
 import { el } from "./dom.js";
 
 // Full-screen overlay shown while the renderer waits for the backend to become

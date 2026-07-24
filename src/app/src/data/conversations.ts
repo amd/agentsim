@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Advanced Micro Devices, Inc. All rights reserved.
+//
+// See LICENSE for license information.
+
 // Conversation model for the sidebar navigator. Data is fetched from the server
 // (see api.ts); this module only defines the UI-facing types.
 

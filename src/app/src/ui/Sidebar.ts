@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Advanced Micro Devices, Inc. All rights reserved.
+//
+// See LICENSE for license information.
+
 import { el, clear } from "./dom.js";
 import { createConversationBlock } from "./ConversationBlock.js";
 import { type Conversation } from "../data/conversations.js";

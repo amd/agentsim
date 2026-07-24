@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Advanced Micro Devices, Inc. All rights reserved.
+//
+// See LICENSE for license information.
+
 // Controls-bar menu definitions. Options are placeholders for now — each just
 // logs so the wiring is visible; swap onSelect for real handlers later.
 
