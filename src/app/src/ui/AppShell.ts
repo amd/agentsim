@@ -2,11 +2,12 @@
 //
 // See LICENSE for license information.
 
+import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { el } from "./dom.js";
 import { createMenuBar } from "./MenuBar.js";
 import { createSidebar } from "./Sidebar.js";
 import { createCanvas } from "./Canvas.js";
-import { openDataSourcesModal } from "./DataSourcesModal.js";
+import { openDataSourcesModal, handleDroppedPaths } from "./DataSourcesModal.js";
 import { menus } from "../data/menus.js";
 
 // Top-level layout: controls bar on top, then sidebar + canvas.
@@ -34,6 +35,15 @@ export function createAppShell(): HTMLElement {
   window.addEventListener("view:timeline-miniature", onToggle(miniature));
 
   window.addEventListener("file:manage-data-sources", () => openDataSourcesModal());
+
+  // Drag a file or folder anywhere in the window to stage it for import. The
+  // webview delivers OS paths (not File objects), which feed the same
+  // "pick framework → validate → add" flow as the Browse buttons.
+  if ("__TAURI_INTERNALS__" in window) {
+    void getCurrentWebview().onDragDropEvent((event) => {
+      if (event.payload.type === "drop") handleDroppedPaths(event.payload.paths);
+    });
+  }
 
   return shell;
 }

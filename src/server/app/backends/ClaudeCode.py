@@ -185,6 +185,80 @@ def _build_timeline(records: list[dict]) -> list[dict]:
     return timeline
 
 
+def _metadata_from_records(records: list[dict], path: str, session_id: str) -> SessionMetadata:
+    """Build a session descriptor from one transcript's parsed records."""
+    title = None
+    first_user_message = None
+    created = None
+    modified = None
+    project_path = ""
+    model = ""
+    for record in records:
+        rtype = record.get("type")
+        if rtype == "ai-title":
+            title = record.get("aiTitle")
+        elif rtype == "user":
+            if created is None:
+                created = record.get("timestamp")
+            if first_user_message is None:
+                content = (record.get("message") or {}).get("content")
+                if isinstance(content, str) and content.strip():
+                    first_user_message = content.strip()
+        elif rtype == "assistant" and record.get("timestamp"):
+            modified = record.get("timestamp")
+        # cwd/model can appear on several record types; take the first cwd
+        # and the latest model seen.
+        if not project_path and record.get("cwd"):
+            project_path = record.get("cwd")
+        record_model = (record.get("message") or {}).get("model")
+        if record_model:
+            model = record_model
+
+    return SessionMetadata(
+        session_id=session_id,
+        title=title or first_user_message or session_id,
+        data_path=path,
+        is_live=_is_live(path),
+        project_path=project_path,
+        project_slug=os.path.basename(os.path.dirname(path)),
+        model=model,
+        effort_level="",  # not present in Claude Code transcripts
+        timestamp_created=created or "",
+        timestamp_modified=modified or "",
+    )
+
+
+def _trace_from_records(records: list[dict], session_id: str) -> SessionTrace:
+    """Flatten one transcript's parsed records into an ordered span trace."""
+    timeline = _build_timeline(records)
+
+    starts = [block["start_time"] for block in timeline if block.get("start_time")]
+    origin = _parse_ts(min(starts)) if starts else None
+
+    spans: list[Span] = []
+    for index, block in enumerate(timeline):
+        span_type = _BLOCK_TYPE_TO_SPAN.get(block["type"], SpanType.other)
+
+        ts_start = block.get("start_time") or ""
+        ts_end = block.get("end_time") or ""
+        offset_start = _offset_ms(ts_start, origin) if (origin and ts_start) else 0
+        offset_end = _offset_ms(ts_end, origin) if (origin and ts_end) else offset_start
+
+        spans.append(Span(
+            span_id=f"{session_id}-{index}",
+            type=span_type,
+            title=block.get("title") or "",
+            content=_content_to_str(block.get("content")),
+            timestamp_start=ts_start,
+            timestamp_end=ts_end,
+            offset_start_ms=offset_start,
+            offset_end=offset_end,
+            duration_ms=max(0, offset_end - offset_start),
+        ))
+
+    return SessionTrace(session_id=session_id, spans=spans)
+
+
 class ClaudeCode(AgenticFramework):
     name = "Claude Code"
     alias = "claudecode"
@@ -218,6 +292,10 @@ class ClaudeCode(AgenticFramework):
         return matches[0]
 
     def get_sessions_list(self) -> list[SessionMetadata]:
+        if os.path.isfile(self.data_basepath):
+            meta, trace = self.parse_file(self.data_basepath)
+            return [meta] if trace.spans else []
+
         sessions: list[SessionMetadata] = []
         for path in self._session_paths():
             session_id = os.path.basename(path).split(".")[0]
@@ -226,74 +304,23 @@ class ClaudeCode(AgenticFramework):
             except json.JSONDecodeError as error:
                 print(f"[claudecode] failed to parse {path}: {error}")
                 continue
-
-            title = None
-            first_user_message = None
-            created = None
-            modified = None
-            project_path = ""
-            model = ""
-            for record in records:
-                rtype = record.get("type")
-                if rtype == "ai-title":
-                    title = record.get("aiTitle")
-                elif rtype == "user":
-                    if created is None:
-                        created = record.get("timestamp")
-                    if first_user_message is None:
-                        content = (record.get("message") or {}).get("content")
-                        if isinstance(content, str) and content.strip():
-                            first_user_message = content.strip()
-                elif rtype == "assistant" and record.get("timestamp"):
-                    modified = record.get("timestamp")
-                # cwd/model can appear on several record types; take the first cwd
-                # and the latest model seen.
-                if not project_path and record.get("cwd"):
-                    project_path = record.get("cwd")
-                record_model = (record.get("message") or {}).get("model")
-                if record_model:
-                    model = record_model
-
-            sessions.append(SessionMetadata(
-                session_id=session_id,
-                title=title or first_user_message or session_id,
-                data_path=path,
-                is_live=_is_live(path),
-                project_path=project_path,
-                project_slug=os.path.basename(os.path.dirname(path)),
-                model=model,
-                effort_level="",  # not present in Claude Code transcripts
-                timestamp_created=created or "",
-                timestamp_modified=modified or "",
-            ))
+            sessions.append(_metadata_from_records(records, path, session_id))
         return sessions
 
     def get_session_trace(self, session_id: str) -> SessionTrace:
+        if os.path.isfile(self.data_basepath):
+            meta, trace = self.parse_file(self.data_basepath)
+            if session_id != meta.session_id:
+                raise FileNotFoundError(f"unknown session: {session_id}")
+            return trace
+
         records = _parse_session_file(self._session_path(session_id))
-        timeline = _build_timeline(records)
+        return _trace_from_records(records, session_id)
 
-        starts = [block["start_time"] for block in timeline if block.get("start_time")]
-        origin = _parse_ts(min(starts)) if starts else None
-
-        spans: list[Span] = []
-        for index, block in enumerate(timeline):
-            span_type = _BLOCK_TYPE_TO_SPAN.get(block["type"], SpanType.other)
-
-            ts_start = block.get("start_time") or ""
-            ts_end = block.get("end_time") or ""
-            offset_start = _offset_ms(ts_start, origin) if (origin and ts_start) else 0
-            offset_end = _offset_ms(ts_end, origin) if (origin and ts_end) else offset_start
-
-            spans.append(Span(
-                span_id=f"{session_id}-{index}",
-                type=span_type,
-                title=block.get("title") or "",
-                content=_content_to_str(block.get("content")),
-                timestamp_start=ts_start,
-                timestamp_end=ts_end,
-                offset_start_ms=offset_start,
-                offset_end=offset_end,
-                duration_ms=max(0, offset_end - offset_start),
-            ))
-
-        return SessionTrace(session_id=session_id, spans=spans)
+    def parse_file(self, path: str) -> tuple[SessionMetadata, SessionTrace]:
+        records = _parse_session_file(path)
+        session_id = os.path.basename(path).split(".")[0]
+        meta = _metadata_from_records(records, path, session_id)
+        meta.is_live = False  # an imported file is a static reference, never "live"
+        trace = _trace_from_records(records, session_id)
+        return meta, trace

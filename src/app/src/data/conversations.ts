@@ -14,7 +14,8 @@ export interface Conversation {
   projectPath: string; // absolute path to the project the session ran in
   dataPath: string; // absolute path to the session's transcript (.jsonl) file
   date: string; // ISO 8601
-  framework: string; // backend alias, e.g. "claudecode"
+  sourceId: string; // id of the source this session is routed through
+  framework: string; // framework format alias, e.g. "claudecode"
   frameworkName: string; // display name, e.g. "Claude Code"
   frameworkColor: string; // CSS hex from the backend, e.g. "#D97757"
   isLive: boolean; // session still being appended to

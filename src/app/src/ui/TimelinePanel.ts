@@ -306,7 +306,7 @@ export function createTimelinePanel(
 
     let spans: Span[];
     try {
-      spans = await fetchTrace(conversation.framework, conversation.id);
+      spans = await fetchTrace(conversation.sourceId, conversation.id);
     } catch {
       if (seq !== requestSeq) return;
       widget?.destroy();

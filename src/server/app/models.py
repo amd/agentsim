@@ -55,7 +55,8 @@ class SessionMetadata(BaseModel):
     project_path: str
     project_slug: str
 
-    framework: str = ""  # alias of the backend this session came from
+    source_id: str = ""  # id of the source this session is routed through
+    framework: str = ""  # alias of the framework format (for the chip + filter facet)
     model: str  # canonical model id as recorded by the framework (e.g. "claude-opus-4-8")
     model_display: str = ""  # human-facing label (prefix-stripped); falls back to model
     effort_level: str
@@ -112,10 +113,27 @@ class SessionFacets(BaseModel):
     models: list[ModelFacet]
 
 
-class AddFrameworkRequest(BaseModel):
-    """Body for activating a framework. ``path`` overrides the framework's
-    default data location; ``None`` uses its default."""
+class SourceInfo(BaseModel):
+    """An active data source: one (framework, path) pair the server is serving.
 
-    alias: str
+    ``id`` is the routing key used by the ``/sources/{id}/...`` endpoints;
+    ``framework`` is the format alias (for the brand tag/color); ``path`` is the
+    folder or file the source points at; ``session_count`` is how many sessions it
+    currently yields.
+    """
+
+    id: str
+    framework: str
+    name: str
+    primary_color: str = ""
+    path: str = ""
+    session_count: int = 0
+
+
+class AddSourceRequest(BaseModel):
+    """Body for adding/validating a source. ``path`` is a folder or a single
+    trace file; ``None`` uses the framework's default data location."""
+
+    framework: str
     path: str | None = None
 
