@@ -111,109 +111,127 @@ function detectedRow(fw: FrameworkInfo, refresh: () => void): HTMLElement {
   ]);
 }
 
-// A picker row for one staged path (from Browse or drag-drop): the path plus a
-// framework dropdown and Add/Cancel. Add validates the chosen framework against
-// the path; invalid keeps the row open (the user can switch framework), valid
-// adds the source and removes the row. This is the single "pick framework →
-// validate → add or discard" gate shared by browsing and dropping.
-function stagingRow(
-  path: string,
-  frameworks: FrameworkInfo[],
-  onAdded: () => void,
-  onDone: (row: HTMLElement) => void,
-): HTMLElement {
-  const select = el("select", { class: "lm-select" },
-    frameworks.map((f) => el("option", { value: f.alias, text: f.name })),
-  ) as HTMLSelectElement;
+// Popup window for one browsed/dropped path: "Select the framework:" over a list
+// of the available frameworks. Clicking one validates it against the path — a
+// valid choice adds the source and closes; an invalid one shows an inline error
+// and leaves the popup open so the user can try another framework or cancel.
+// This is the single "pick framework → validate → add or discard" gate shared by
+// the Import buttons and drag-drop. Resolves once the popup closes (either way).
+function openFrameworkPicker(path: string): Promise<void> {
+  return new Promise((resolve) => {
+    const message = el("div", { class: "ds-add-msg" });
+    const options = el("div", { class: "ds-picker-options" });
 
-  const add = el("button", { class: "lm-btn lm-btn-secondary", text: "Add" });
-  const cancel = el("button", { class: "lm-btn lm-btn-secondary", text: "Cancel" });
-  const message = el("div", { class: "ds-add-msg" });
+    const closeBtn = el("button", {
+      class: "lm-icon-btn ds-close", "aria-label": "Close", text: "✕",
+    });
 
-  const row = el("div", { class: "ds-stage" }, [
-    el("div", { class: "ds-row-meta ds-stage-path", text: path, title: path }),
-    el("div", { class: "ds-add-row" }, [select, add, cancel]),
-    message,
-  ]);
+    const modal = el("div", { class: "ds-picker" }, [
+      el("div", { class: "ds-header" }, [
+        el("h3", { class: "ds-title", text: "Select the framework:" }),
+        closeBtn,
+      ]),
+      el("div", { class: "ds-picker-body" }, [
+        el("div", { class: "ds-row-meta ds-picker-path", text: path, title: path }),
+        options,
+        message,
+      ]),
+    ]);
 
-  cancel.addEventListener("click", () => onDone(row));
+    const overlay = el("div", { class: "ds-overlay" }, [modal]);
 
-  add.addEventListener("click", async () => {
-    add.disabled = true;
-    message.classList.remove("error");
-    message.textContent = "Verifying…";
-    try {
-      const result = await validateSource(select.value, path);
-      if (!result.valid) {
+    const close = () => {
+      overlay.remove();
+      document.removeEventListener("keydown", onKey);
+      resolve();
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") close();
+    };
+
+    const choose = async (alias: string): Promise<void> => {
+      options.querySelectorAll("button").forEach((b) => (b.disabled = true));
+      message.classList.remove("error");
+      message.textContent = "Verifying…";
+      try {
+        const result = await validateSource(alias, path);
+        if (!result.valid) {
+          message.classList.add("error");
+          message.textContent = result.error || "Not a valid data source.";
+          options.querySelectorAll("button").forEach((b) => (b.disabled = false));
+          return;
+        }
+        await addSource(alias, path);
+        notifyChanged();
+        activeRefresh?.();
+        close();
+      } catch (e) {
         message.classList.add("error");
-        message.textContent = result.error || "Not a valid data source.";
-        add.disabled = false;
-        return;
+        message.textContent = e instanceof Error ? e.message : "Failed to add data source.";
+        options.querySelectorAll("button").forEach((b) => (b.disabled = false));
       }
-      await addSource(select.value, path);
-      notifyChanged();
-      onAdded();
-      onDone(row);
-    } catch (e) {
-      message.classList.add("error");
-      message.textContent = e instanceof Error ? e.message : "Failed to add data source.";
-      add.disabled = false;
-    }
-  });
+    };
 
-  return row;
+    closeBtn.addEventListener("click", close);
+    overlay.addEventListener("click", (e) => {
+      if (e.target === overlay) close();
+    });
+    document.addEventListener("keydown", onKey);
+
+    document.body.append(overlay);
+
+    // Populate the option list from the catalog. Loading/failure states stay
+    // inside the popup so the flow is self-contained.
+    message.textContent = "Loading frameworks…";
+    fetchAvailableFrameworks()
+      .then((frameworks) => {
+        message.textContent = "";
+        for (const fw of frameworks) {
+          const btn = el("button", { class: "ds-picker-option" }, [
+            frameworkTag(fw.name, fw.primary_color),
+          ]);
+          btn.addEventListener("click", () => void choose(fw.alias));
+          options.append(btn);
+        }
+      })
+      .catch(() => {
+        message.classList.add("error");
+        message.textContent = "Cannot reach server.";
+      });
+  });
 }
 
-// Handle to the open modal's staging entry point, so a window drop can reach it
-// even when the modal was already open. Null when no modal is mounted.
-let activeStage: ((paths: string[]) => void) | null = null;
+// Refresh handle for the open modal's active list, so an add via the framework
+// picker updates the list without a full reopen. Null when no modal is mounted.
+let activeRefresh: (() => void) | null = null;
 
-// Stage one or more dropped/browsed paths for the "pick framework → validate →
-// add" flow, opening the modal first if it isn't already up. Called by the
-// window-wide drag-drop handler and by the Browse buttons.
+// Run one or more dropped/browsed paths through the "pick framework → validate →
+// add" popup, one path at a time. Called by the window-wide drag-drop handler and
+// by the Import buttons.
 export function handleDroppedPaths(paths: string[]): void {
-  if (paths.length === 0) return;
-  if (!activeStage) openDataSourcesModal();
-  activeStage?.(paths);
+  void (async () => {
+    const seen = new Set<string>();
+    for (const path of paths) {
+      if (seen.has(path)) continue;
+      seen.add(path);
+      await openFrameworkPicker(path);
+    }
+  })();
 }
 
 // Open the modal. Appends an overlay to <body>; closes on the × button, a click
 // on the backdrop, or Escape.
 export function openDataSourcesModal(): void {
-  // Persisted across re-renders: staged picker rows live here so a mid-flow
-  // refresh of the active list doesn't wipe pending pickers.
-  const stageArea = el("div", { class: "ds-stage-area" });
   const mainBody = el("div", { class: "ds-body" });
-
-  let available: FrameworkInfo[] = [];
-
-  const stagePaths = (paths: string[]): void => {
-    for (const path of paths) {
-      // Skip a path already staged (avoid duplicate pickers for the same drop).
-      const existing = Array.from(stageArea.querySelectorAll<HTMLElement>(".ds-stage-path"))
-        .some((n) => n.textContent === path);
-      if (existing) continue;
-      const row = stagingRow(
-        path,
-        available,
-        () => void render(),
-        (r) => r.remove(),
-      );
-      stageArea.append(row);
-    }
-  };
-  activeStage = stagePaths;
 
   const render = async (): Promise<void> => {
     clear(mainBody);
     mainBody.append(el("div", { class: "ds-status", text: "Loading…" }));
     try {
-      const [sources, avail, detected] = await Promise.all([
+      const [sources, detected] = await Promise.all([
         fetchSources(),
-        fetchAvailableFrameworks(),
         fetchDetectedFrameworks(),
       ]);
-      available = avail;
 
       clear(mainBody);
 
@@ -237,11 +255,11 @@ export function openDataSourcesModal(): void {
         const importFolder = el("button", { class: "lm-btn lm-btn-secondary", text: "Import Folder…" });
         importFile.addEventListener("click", async () => {
           const picked = await pickPath(false);
-          if (picked) stagePaths([picked]);
+          if (picked) handleDroppedPaths([picked]);
         });
         importFolder.addEventListener("click", async () => {
           const picked = await pickPath(true);
-          if (picked) stagePaths([picked]);
+          if (picked) handleDroppedPaths([picked]);
         });
         addControls.push(el("div", { class: "ds-add-row" }, [importFile, importFolder]));
       } else {
@@ -272,16 +290,17 @@ export function openDataSourcesModal(): void {
       el("h3", { class: "ds-title", text: "Manage Data Sources" }),
       closeBtn,
     ]),
-    stageArea,
     mainBody,
   ]);
 
   const overlay = el("div", { class: "ds-overlay" }, [modal]);
 
+  activeRefresh = () => void render();
+
   const close = () => {
     overlay.remove();
     document.removeEventListener("keydown", onKey);
-    activeStage = null;
+    activeRefresh = null;
   };
   const onKey = (e: KeyboardEvent) => {
     if (e.key === "Escape") close();

@@ -701,37 +701,69 @@ html, body {
 .ds-add-msg:empty { display: none; }
 .ds-add-msg.error { color: var(--error-color); }
 
-/* Staged picker rows (from Browse or drag-drop): each holds a path plus the
-   "pick framework → validate → add" controls. The area sits above the main
-   body so a mid-flow refresh of the active list doesn't wipe pending pickers. */
-.ds-stage-area {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    padding: 0 18px;
-}
-.ds-stage-area:empty { display: none; }
-
-.ds-stage {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    margin-top: 12px;
-    padding: 10px 12px;
-    background: var(--bg-alpha-03);
-    border: 1px solid var(--accent-color, var(--border-primary));
-    border-radius: var(--radius-md);
+.ds-hint {
+    font-size: 0.68rem;
+    color: var(--text-quaternary);
 }
 
-.ds-stage-path {
+/* Framework-picker popup (from Import buttons or drag-drop): a compact modal
+   over the backdrop titled "Select the framework:" listing the catalog as
+   clickable options. Sits on the same .ds-overlay as the main modal. */
+.ds-picker {
+    width: 420px;
+    max-width: calc(100vw - 32px);
+    max-height: calc(100vh - 64px);
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-primary);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+    overflow: hidden;
+}
+
+.ds-picker-body {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 16px 18px 18px;
+    overflow-y: auto;
+}
+
+.ds-picker-path {
     margin-top: 0;
     color: var(--text-primary);
     font-weight: 500;
 }
 
-.ds-hint {
-    font-size: 0.68rem;
-    color: var(--text-quaternary);
+.ds-picker-options {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.ds-picker-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    text-align: left;
+    background: var(--bg-alpha-03);
+    border: 1px solid var(--border-alpha-08);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    color: var(--text-primary);
+    font-size: 0.8rem;
+}
+
+.ds-picker-option:hover:not(:disabled) {
+    background: var(--bg-alpha-05);
+    border-color: var(--border-primary);
+}
+
+.ds-picker-option:disabled {
+    opacity: 0.5;
+    cursor: default;
 }
 
 /* --- Main canvas (3 stacked sections, 70/20/10) -------------------------- */
