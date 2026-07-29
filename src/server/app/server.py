@@ -4,12 +4,13 @@
 
 """HTTP endpoints for the server (FastAPI).
 
-``create_app`` is handed a :class:`FrameworkRegistry` holding the active backends.
-Each request names the framework it wants in the path
-(``/frameworks/{framework}/...``); the handler looks it up and dispatches.
-Frameworks (data sources) can be added/removed at runtime via the
-``/frameworks`` CRUD endpoints, and every other endpoint reads the registry's
-live active set, so changes take effect immediately.
+``create_app`` is handed a :class:`FrameworkRegistry` holding the active sources.
+A **source** is one (framework, path) pair where ``path`` is a folder OR a single
+trace file. Each request names the source it wants in the path
+(``/sources/{source_id}/...``); the handler looks it up and dispatches. Sources
+can be added/removed at runtime via the ``/sources`` CRUD endpoints, and every
+other endpoint reads the registry's live active set, so changes take effect
+immediately.
 
 The HTTP contract is the seam between client and server: the frontend (api.ts)
 and the CLI both speak it, so either can be swapped without the server changing.
@@ -23,8 +24,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.backends.AgenticFramework import AgenticFramework
 from app.models import (
-    AddFrameworkRequest,
-    FrameworkInfo,
+    AddSourceRequest,
+    DataSource,
     ModelFacet,
     ProjectFacet,
     SessionFacets,
@@ -60,23 +61,33 @@ def create_app(registry: FrameworkRegistry) -> FastAPI:
         allow_headers=["*"],
     )
 
-    def _framework(alias: str) -> AgenticFramework:
-        backend = registry.get(alias)
+    def _source(source_id: str) -> AgenticFramework:
+        backend = registry.get(source_id)
         if backend is None:
             known = ", ".join(sorted(registry.active)) or "(none)"
-            raise HTTPException(status_code=404, detail=f"unknown framework: {alias} (known: {known})")
+            raise HTTPException(status_code=404, detail=f"unknown source: {source_id} (known: {known})")
         return backend
 
+    def _safe_sessions(backend: AgenticFramework) -> list[SessionMetadata]:
+        """A backend's sessions, or ``[]`` if its path is gone/unreadable, so one
+        bad source never 500s the whole sidebar."""
+        try:
+            return backend.get_sessions_list()
+        except Exception as error:  # missing/renamed path, parse failure, etc.
+            print(f"[server] source read failed for {backend.data_basepath}: {error}")
+            return []
+
     def _prepare(
-        items: list[SessionMetadata], alias: str, backend: AgenticFramework
+        items: list[SessionMetadata], source_id: str, backend: AgenticFramework
     ) -> list[SessionMetadata]:
-        """Stamp each session with its framework alias and derive its display
-        model name (the framework's prefix stripped). The canonical `model` is
-        left intact so clients keep the real id (needed to launch the CLI); only
-        the additive `model_display` carries the prettified label."""
+        """Stamp each session with its source id + framework format alias and
+        derive its display model name (the framework's prefix stripped). The
+        canonical `model` is left intact so clients keep the real id (needed to
+        launch the CLI); only the additive `model_display` carries the label."""
         prefix = backend.remove_model_nameprefix
         for item in items:
-            item.framework = alias
+            item.source_id = source_id
+            item.framework = backend.alias
             if prefix and item.model.startswith(prefix):
                 item.model_display = item.model[len(prefix):]
             else:
@@ -84,16 +95,17 @@ def create_app(registry: FrameworkRegistry) -> FastAPI:
         return items
 
     def _all_sessions() -> list[SessionMetadata]:
-        """Union every active backend's sessions, stamping each with its alias."""
+        """Union every active source's sessions, stamping each with its source
+        id and framework format alias."""
         merged: list[SessionMetadata] = []
-        for alias, backend in registry.active.items():
-            merged.extend(_prepare(backend.get_sessions_list(), alias, backend))
+        for source_id, backend in registry.active.items():
+            merged.extend(_prepare(_safe_sessions(backend), source_id, backend))
         merged.sort(key=lambda s: s.timestamp_modified, reverse=True)
         return merged
 
     @app.get("/health")
     def health() -> dict[str, object]:
-        return {"status": "ok", "frameworks": sorted(registry.active)}
+        return {"status": "ok", "sources": sorted(registry.active)}
 
     @app.get("/config")
     def get_config() -> dict[str, object]:
@@ -106,55 +118,57 @@ def create_app(registry: FrameworkRegistry) -> FastAPI:
         """Clear the first-startup flag once the client has handled first-run UI."""
         registry.mark_startup_complete()
 
-    @app.get("/frameworks")
-    def list_frameworks() -> list[FrameworkInfo]:
-        """The active frameworks (data sources) currently being served."""
-        return [
-            FrameworkInfo(
-                alias=alias,
-                name=fw.name,
-                data_basepath=fw.data_basepath,
-                session_count=len(fw.get_sessions_list()),
-                primary_color=fw.primary_color,
-            )
-            for alias, fw in registry.active.items()
-        ]
-
     @app.get("/frameworks/available")
-    def available_frameworks() -> list[FrameworkInfo]:
-        """Every framework type the server can build, active or not."""
+    def available_frameworks() -> list[DataSource]:
+        """Every framework type the server can build -- the add dropdown catalog."""
         return [
-            FrameworkInfo(alias=cls.alias, name=cls.name, primary_color=cls.primary_color)
+            DataSource(alias=cls.alias, name=cls.name, primary_color=cls.primary_color)
             for cls in registry.available()
         ]
 
     @app.get("/frameworks/detected")
-    def detected_frameworks() -> list[FrameworkInfo]:
-        """Catalog frameworks whose default data location exists but that aren't
-        active yet -- the basis for the Manage Data Sources "detected" list."""
-        found: list[FrameworkInfo] = []
+    def detected_frameworks() -> list[DataSource]:
+        """Catalog frameworks whose default data location exists but isn't already
+        an active source -- the basis for the Manage Data Sources "detected" list."""
+        found: list[DataSource] = []
         for cls in registry.available():
-            if cls.alias in registry.active:
-                continue
             path = cls.detect()
             if not path:
                 continue
+            if registry.get(FrameworkRegistry._source_id(path)) is not None:
+                continue  # default location already added as a source
             probe = cls(path)
             probe.init()
-            found.append(FrameworkInfo(
+            found.append(DataSource(
                 alias=cls.alias, name=cls.name, primary_color=cls.primary_color,
-                data_basepath=path, session_count=len(probe.get_sessions_list()),
+                path=path, session_count=len(_safe_sessions(probe)),
             ))
         return found
 
-    @app.post("/frameworks/validate")
-    def validate_framework(body: AddFrameworkRequest) -> dict[str, object]:
-        """Check whether ``path`` holds readable sessions for ``alias`` before the
-        user commits to adding it. Returns ``valid`` plus the session count (or a
-        human-readable ``error`` when it isn't a usable data source)."""
-        cls = AVAILABLE.get(body.alias)
+    def _source_info(source_id: str, backend: AgenticFramework) -> DataSource:
+        return DataSource(
+            id=source_id,
+            alias=backend.alias,
+            name=backend.name,
+            primary_color=backend.primary_color,
+            path=backend.data_basepath,
+            session_count=len(_safe_sessions(backend)),
+        )
+
+    @app.get("/sources")
+    def list_sources() -> list[DataSource]:
+        """Every active data source (folder or file), each with its live count."""
+        return [_source_info(sid, fw) for sid, fw in registry.active.items()]
+
+    @app.post("/sources/validate")
+    def validate_source(body: AddSourceRequest) -> dict[str, object]:
+        """Check whether ``path`` holds readable sessions for ``framework`` before
+        the user commits to adding it. One generic gate for both folders and
+        single files: valid iff at least one session is found. Returns ``valid``
+        plus the session count (or a human-readable ``error``)."""
+        cls = AVAILABLE.get(body.framework)
         if cls is None:
-            return {"valid": False, "session_count": 0, "error": f"Unknown framework: {body.alias}"}
+            return {"valid": False, "session_count": 0, "error": f"Unknown framework: {body.framework}"}
         try:
             probe = cls(body.path)
             probe.init()
@@ -169,32 +183,31 @@ def create_app(registry: FrameworkRegistry) -> FastAPI:
             }
         return {"valid": True, "session_count": count, "error": ""}
 
-    @app.post("/frameworks", status_code=201)
-    def add_framework(body: AddFrameworkRequest) -> FrameworkInfo:
-        if body.alias not in AVAILABLE:
+    @app.post("/sources", status_code=201)
+    def add_source(body: AddSourceRequest) -> DataSource:
+        if body.framework not in AVAILABLE:
             known = ", ".join(sorted(AVAILABLE)) or "(none)"
             raise HTTPException(
                 status_code=404,
-                detail=f"unknown framework: {body.alias} (available: {known})",
+                detail=f"unknown framework: {body.framework} (available: {known})",
             )
+        # Enforce the same gate the client pre-checks with, so a source is never
+        # added unless it actually yields sessions for its framework.
+        result = validate_source(body)
+        if not result["valid"]:
+            raise HTTPException(status_code=422, detail=str(result["error"]))
         try:
-            fw = registry.add(body.alias, body.path)
+            source_id, backend = registry.add(body.framework, body.path)
         except ValueError:
-            raise HTTPException(status_code=409, detail=f"framework already active: {body.alias}")
-        return FrameworkInfo(
-            alias=body.alias,
-            name=fw.name,
-            data_basepath=fw.data_basepath,
-            session_count=len(fw.get_sessions_list()),
-            primary_color=fw.primary_color,
-        )
+            raise HTTPException(status_code=409, detail="source already active for this path")
+        return _source_info(source_id, backend)
 
-    @app.delete("/frameworks/{alias}", status_code=204)
-    def remove_framework(alias: str) -> None:
+    @app.delete("/sources/{source_id}", status_code=204)
+    def remove_source(source_id: str) -> None:
         try:
-            registry.remove(alias)
+            registry.remove(source_id)
         except KeyError:
-            raise HTTPException(status_code=404, detail=f"framework not active: {alias}")
+            raise HTTPException(status_code=404, detail=f"source not active: {source_id}")
 
     @app.get("/sessions")
     def list_sessions(
@@ -236,20 +249,22 @@ def create_app(registry: FrameworkRegistry) -> FastAPI:
     def session_facets() -> SessionFacets:
         sessions = _all_sessions()
 
+        # Group by framework format so multiple sources of the same framework fold
+        # into one pill (e.g. a Claude Code folder + a Claude Code file share one).
         fw_counts: dict[str, int] = {}
         for s in sessions:
             fw_counts[s.framework] = fw_counts.get(s.framework, 0) + 1
-        fw_facets = [
-            FrameworkInfo(
+        fw_facets = []
+        for alias, count in fw_counts.items():
+            cls = AVAILABLE.get(alias)
+            if cls is None or count == 0:
+                continue
+            fw_facets.append(DataSource(
                 alias=alias,
-                name=registry.active[alias].name,
-                primary_color=registry.active[alias].primary_color,
-                data_basepath=registry.active[alias].data_basepath,
-                session_count=fw_counts.get(alias, 0),
-            )
-            for alias in registry.active
-            if fw_counts.get(alias, 0) > 0
-        ]
+                name=cls.name,
+                primary_color=cls.primary_color,
+                session_count=count,
+            ))
 
         proj_counts: dict[str, int] = {}
         for s in sessions:
@@ -270,14 +285,14 @@ def create_app(registry: FrameworkRegistry) -> FastAPI:
 
         return SessionFacets(frameworks=fw_facets, projects=proj_facets, models=model_facets)
 
-    @app.get("/frameworks/{framework}/sessions")
-    def sessions(framework: str) -> list[SessionMetadata]:
-        backend = _framework(framework)
-        return _prepare(backend.get_sessions_list(), framework, backend)
+    @app.get("/sources/{source_id}/sessions")
+    def sessions(source_id: str) -> list[SessionMetadata]:
+        backend = _source(source_id)
+        return _prepare(_safe_sessions(backend), source_id, backend)
 
-    @app.get("/frameworks/{framework}/sessions/{session_id}")
-    def session(framework: str, session_id: str) -> SessionTrace:
-        backend = _framework(framework)
+    @app.get("/sources/{source_id}/sessions/{session_id}")
+    def session(source_id: str, session_id: str) -> SessionTrace:
+        backend = _source(source_id)
         try:
             return backend.get_session_trace(session_id)
         except FileNotFoundError:

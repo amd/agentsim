@@ -23,7 +23,7 @@ export async function waitForServer(
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     try {
-      const res = await fetch(`${BASE}/frameworks`);
+      const res = await fetch(`${BASE}/health`);
       if (res.ok) return true;
     } catch {
       // Connection refused — server not listening yet; keep polling.
@@ -65,18 +65,22 @@ interface WireSession {
   effort_level: string;
   timestamp_created: string;
   timestamp_modified: string;
+  source_id: string;
   framework: string;
 }
 
-// One shape for every framework (data source) view: the active set, the catalog
-// of available types, auto-detected sources, and the filter facets. Fields that
-// don't apply to a given view come back at their defaults ("" / 0).
-export interface FrameworkInfo {
-  alias: string;
+// A data source the server knows about, at any life stage: the catalog of
+// available framework types, an auto-detected candidate, or an active source.
+// One shape serves every view -- fields that don't apply stay empty: `path` is
+// "" for the plain catalog; `session_count` is 0 where no count is meaningful;
+// `id` is the `/sources/{id}/...` routing key, set only for active sources.
+export interface DataSource {
+  alias: string; // framework format id (brand tag/color + filter facet)
   name: string;
   primary_color: string;
-  data_basepath: string;
+  path: string;
   session_count: number;
+  id: string;
 }
 
 export interface ProjectFacet {
@@ -91,7 +95,7 @@ export interface ModelFacet {
 }
 
 export interface Facets {
-  frameworks: FrameworkInfo[];
+  frameworks: DataSource[];
   projects: ProjectFacet[];
   models: ModelFacet[];
 }
@@ -108,7 +112,7 @@ let frameworkMeta: Map<string, FrameworkMeta> | null = null;
 
 async function frameworkMetaMap(): Promise<Map<string, FrameworkMeta>> {
   if (frameworkMeta) return frameworkMeta;
-  const frameworks = await fetchFrameworks();
+  const frameworks = await fetchAvailableFrameworks();
   frameworkMeta = new Map(
     frameworks.map((f) => [f.alias, { name: f.name, color: f.primary_color }]),
   );
@@ -131,6 +135,7 @@ function toConversation(s: WireSession, meta: Map<string, FrameworkMeta>): Conve
     projectPath: s.project_path,
     dataPath: s.data_path,
     date: s.timestamp_modified || s.timestamp_created,
+    sourceId: s.source_id,
     framework: s.framework,
     frameworkName: fw?.name ?? s.framework,
     frameworkColor: fw?.color ?? "",
@@ -198,72 +203,74 @@ interface WireTrace {
 }
 
 // The full ordered span trace for one session, used to render the timeline.
-export async function fetchTrace(framework: string, sessionId: string): Promise<Span[]> {
-  const url = `${BASE}/frameworks/${encodeURIComponent(framework)}/sessions/${encodeURIComponent(sessionId)}`;
+export async function fetchTrace(sourceId: string, sessionId: string): Promise<Span[]> {
+  const url = `${BASE}/sources/${encodeURIComponent(sourceId)}/sessions/${encodeURIComponent(sessionId)}`;
   const res = await fetch(url);
   if (!res.ok) throw new Error(`GET ${url} failed: ${res.status}`);
   const trace = (await res.json()) as WireTrace;
   return trace.spans;
 }
 
-// --- Framework (data source) management ------------------------------------
+// --- Data source management ------------------------------------------------
 // The backend owns the active set; these mirror its CRUD endpoints so the
-// Manage Data Sources UI stays a thin view over the server.
+// Manage Data Sources UI stays a thin view over the server. A source is one
+// (framework, path) pair where path is a folder OR a single trace file.
 
-export async function fetchFrameworks(): Promise<FrameworkInfo[]> {
-  const res = await fetch(`${BASE}/frameworks`);
-  if (!res.ok) throw new Error(`GET /frameworks failed: ${res.status}`);
-  return (await res.json()) as FrameworkInfo[];
+export async function fetchSources(): Promise<DataSource[]> {
+  const res = await fetch(`${BASE}/sources`);
+  if (!res.ok) throw new Error(`GET /sources failed: ${res.status}`);
+  return (await res.json()) as DataSource[];
 }
 
-export async function fetchAvailableFrameworks(): Promise<FrameworkInfo[]> {
+export async function fetchAvailableFrameworks(): Promise<DataSource[]> {
   const res = await fetch(`${BASE}/frameworks/available`);
   if (!res.ok) throw new Error(`GET /frameworks/available failed: ${res.status}`);
-  return (await res.json()) as FrameworkInfo[];
+  return (await res.json()) as DataSource[];
 }
 
-export async function fetchDetectedFrameworks(): Promise<FrameworkInfo[]> {
+export async function fetchDetectedFrameworks(): Promise<DataSource[]> {
   const res = await fetch(`${BASE}/frameworks/detected`);
   if (!res.ok) throw new Error(`GET /frameworks/detected failed: ${res.status}`);
-  return (await res.json()) as FrameworkInfo[];
+  return (await res.json()) as DataSource[];
 }
 
-export interface FrameworkValidation {
+export interface SourceValidation {
   valid: boolean;
   session_count: number;
   error: string;
 }
 
-// Check whether `path` holds readable sessions for `alias` before adding it.
-export async function validateFramework(alias: string, path?: string): Promise<FrameworkValidation> {
-  const res = await fetch(`${BASE}/frameworks/validate`, {
+// Check whether `path` (a folder or a file) holds readable sessions for
+// `framework` before adding it.
+export async function validateSource(framework: string, path?: string): Promise<SourceValidation> {
+  const res = await fetch(`${BASE}/sources/validate`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ alias, path: path || null }),
+    body: JSON.stringify({ framework, path: path || null }),
   });
-  if (!res.ok) throw new Error(`POST /frameworks/validate failed: ${res.status}`);
-  return (await res.json()) as FrameworkValidation;
+  if (!res.ok) throw new Error(`POST /sources/validate failed: ${res.status}`);
+  return (await res.json()) as SourceValidation;
 }
 
-export async function addFramework(alias: string, path?: string): Promise<FrameworkInfo> {
-  const res = await fetch(`${BASE}/frameworks`, {
+export async function addSource(framework: string, path?: string): Promise<DataSource> {
+  const res = await fetch(`${BASE}/sources`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ alias, path: path || null }),
+    body: JSON.stringify({ framework, path: path || null }),
   });
   if (!res.ok) {
     const detail = await res.json().catch(() => null);
-    throw new Error(detail?.detail || `POST /frameworks failed: ${res.status}`);
+    throw new Error(detail?.detail || `POST /sources failed: ${res.status}`);
   }
-  return (await res.json()) as FrameworkInfo;
+  return (await res.json()) as DataSource;
 }
 
-export async function removeFramework(alias: string): Promise<void> {
-  const res = await fetch(`${BASE}/frameworks/${encodeURIComponent(alias)}`, {
+export async function removeSource(id: string): Promise<void> {
+  const res = await fetch(`${BASE}/sources/${encodeURIComponent(id)}`, {
     method: "DELETE",
   });
   if (!res.ok) {
     const detail = await res.json().catch(() => null);
-    throw new Error(detail?.detail || `DELETE /frameworks/${alias} failed: ${res.status}`);
+    throw new Error(detail?.detail || `DELETE /sources/${id} failed: ${res.status}`);
   }
 }

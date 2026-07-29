@@ -55,7 +55,8 @@ class SessionMetadata(BaseModel):
     project_path: str
     project_slug: str
 
-    framework: str = ""  # alias of the backend this session came from
+    source_id: str = ""  # id of the source this session is routed through
+    framework: str = ""  # alias of the framework format (for the chip + filter facet)
     model: str  # canonical model id as recorded by the framework (e.g. "claude-opus-4-8")
     model_display: str = ""  # human-facing label (prefix-stripped); falls back to model
     effort_level: str
@@ -71,21 +72,23 @@ class SessionTrace(BaseModel):
     spans: list[Span]
 
 
-class FrameworkInfo(BaseModel):
-    """A framework (data source) the server knows about.
+class DataSource(BaseModel):
+    """A data source the server knows about, at any life stage.
 
-    One shape serves every framework view: the active set, the catalog of
-    available types, auto-detected sources, and the filter facets. Fields that
-    don't apply to a given view are left at their defaults -- e.g. ``data_basepath``
-    is the resolved path for active/detected frameworks and ``""`` in the catalog;
-    ``session_count`` is populated where a count is meaningful and ``0`` otherwise.
+    One shape serves every view: the catalog of available framework types, the
+    auto-detected candidates, the active set, and the filter facets. Fields that
+    don't apply to a given view stay at their defaults -- ``path`` is the resolved
+    file/folder for detected/active sources and ``""`` in the plain catalog;
+    ``session_count`` is populated where a count is meaningful and ``0`` otherwise;
+    ``id`` is the ``/sources/{id}/...`` routing key, set only for active sources.
     """
 
-    alias: str
+    alias: str  # framework format id (brand tag/color + filter facet)
     name: str
     primary_color: str = ""
-    data_basepath: str = ""
+    path: str = ""
     session_count: int = 0
+    id: str = ""
 
 
 class ProjectFacet(BaseModel):
@@ -107,15 +110,15 @@ class SessionFacets(BaseModel):
     """Distinct filter options across all sessions, built by the backend so the
     frontend's filter window mirrors what's actually available."""
 
-    frameworks: list[FrameworkInfo]
+    frameworks: list[DataSource]
     projects: list[ProjectFacet]
     models: list[ModelFacet]
 
 
-class AddFrameworkRequest(BaseModel):
-    """Body for activating a framework. ``path`` overrides the framework's
-    default data location; ``None`` uses its default."""
+class AddSourceRequest(BaseModel):
+    """Body for adding/validating a source. ``path`` is a folder or a single
+    trace file; ``None`` uses the framework's default data location."""
 
-    alias: str
+    framework: str
     path: str | None = None
 
