@@ -69,25 +69,18 @@ interface WireSession {
   framework: string;
 }
 
-// A framework type in the catalog (the add dropdown + auto-detected list).
-// `data_basepath`/`session_count` are populated for detected frameworks and left
-// at their defaults ("" / 0) for the plain available catalog.
-export interface FrameworkInfo {
-  alias: string;
-  name: string;
-  primary_color: string;
-  data_basepath: string;
-  session_count: number;
-}
-
-// An active data source: one (framework, path) pair the server is serving.
-export interface SourceInfo {
-  id: string;
-  framework: string;
+// A data source the server knows about, at any life stage: the catalog of
+// available framework types, an auto-detected candidate, or an active source.
+// One shape serves every view -- fields that don't apply stay empty: `path` is
+// "" for the plain catalog; `session_count` is 0 where no count is meaningful;
+// `id` is the `/sources/{id}/...` routing key, set only for active sources.
+export interface DataSource {
+  alias: string; // framework format id (brand tag/color + filter facet)
   name: string;
   primary_color: string;
   path: string;
   session_count: number;
+  id: string;
 }
 
 export interface ProjectFacet {
@@ -102,7 +95,7 @@ export interface ModelFacet {
 }
 
 export interface Facets {
-  frameworks: FrameworkInfo[];
+  frameworks: DataSource[];
   projects: ProjectFacet[];
   models: ModelFacet[];
 }
@@ -223,22 +216,22 @@ export async function fetchTrace(sourceId: string, sessionId: string): Promise<S
 // Manage Data Sources UI stays a thin view over the server. A source is one
 // (framework, path) pair where path is a folder OR a single trace file.
 
-export async function fetchSources(): Promise<SourceInfo[]> {
+export async function fetchSources(): Promise<DataSource[]> {
   const res = await fetch(`${BASE}/sources`);
   if (!res.ok) throw new Error(`GET /sources failed: ${res.status}`);
-  return (await res.json()) as SourceInfo[];
+  return (await res.json()) as DataSource[];
 }
 
-export async function fetchAvailableFrameworks(): Promise<FrameworkInfo[]> {
+export async function fetchAvailableFrameworks(): Promise<DataSource[]> {
   const res = await fetch(`${BASE}/frameworks/available`);
   if (!res.ok) throw new Error(`GET /frameworks/available failed: ${res.status}`);
-  return (await res.json()) as FrameworkInfo[];
+  return (await res.json()) as DataSource[];
 }
 
-export async function fetchDetectedFrameworks(): Promise<FrameworkInfo[]> {
+export async function fetchDetectedFrameworks(): Promise<DataSource[]> {
   const res = await fetch(`${BASE}/frameworks/detected`);
   if (!res.ok) throw new Error(`GET /frameworks/detected failed: ${res.status}`);
-  return (await res.json()) as FrameworkInfo[];
+  return (await res.json()) as DataSource[];
 }
 
 export interface SourceValidation {
@@ -259,7 +252,7 @@ export async function validateSource(framework: string, path?: string): Promise<
   return (await res.json()) as SourceValidation;
 }
 
-export async function addSource(framework: string, path?: string): Promise<SourceInfo> {
+export async function addSource(framework: string, path?: string): Promise<DataSource> {
   const res = await fetch(`${BASE}/sources`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -269,7 +262,7 @@ export async function addSource(framework: string, path?: string): Promise<Sourc
     const detail = await res.json().catch(() => null);
     throw new Error(detail?.detail || `POST /sources failed: ${res.status}`);
   }
-  return (await res.json()) as SourceInfo;
+  return (await res.json()) as DataSource;
 }
 
 export async function removeSource(id: string): Promise<void> {

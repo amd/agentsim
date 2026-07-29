@@ -72,21 +72,23 @@ class SessionTrace(BaseModel):
     spans: list[Span]
 
 
-class FrameworkInfo(BaseModel):
-    """A framework (data source) the server knows about.
+class DataSource(BaseModel):
+    """A data source the server knows about, at any life stage.
 
-    One shape serves every framework view: the active set, the catalog of
-    available types, auto-detected sources, and the filter facets. Fields that
-    don't apply to a given view are left at their defaults -- e.g. ``data_basepath``
-    is the resolved path for active/detected frameworks and ``""`` in the catalog;
-    ``session_count`` is populated where a count is meaningful and ``0`` otherwise.
+    One shape serves every view: the catalog of available framework types, the
+    auto-detected candidates, the active set, and the filter facets. Fields that
+    don't apply to a given view stay at their defaults -- ``path`` is the resolved
+    file/folder for detected/active sources and ``""`` in the plain catalog;
+    ``session_count`` is populated where a count is meaningful and ``0`` otherwise;
+    ``id`` is the ``/sources/{id}/...`` routing key, set only for active sources.
     """
 
-    alias: str
+    alias: str  # framework format id (brand tag/color + filter facet)
     name: str
     primary_color: str = ""
-    data_basepath: str = ""
+    path: str = ""
     session_count: int = 0
+    id: str = ""
 
 
 class ProjectFacet(BaseModel):
@@ -108,26 +110,9 @@ class SessionFacets(BaseModel):
     """Distinct filter options across all sessions, built by the backend so the
     frontend's filter window mirrors what's actually available."""
 
-    frameworks: list[FrameworkInfo]
+    frameworks: list[DataSource]
     projects: list[ProjectFacet]
     models: list[ModelFacet]
-
-
-class SourceInfo(BaseModel):
-    """An active data source: one (framework, path) pair the server is serving.
-
-    ``id`` is the routing key used by the ``/sources/{id}/...`` endpoints;
-    ``framework`` is the format alias (for the brand tag/color); ``path`` is the
-    folder or file the source points at; ``session_count`` is how many sessions it
-    currently yields.
-    """
-
-    id: str
-    framework: str
-    name: str
-    primary_color: str = ""
-    path: str = ""
-    session_count: int = 0
 
 
 class AddSourceRequest(BaseModel):

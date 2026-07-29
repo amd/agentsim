@@ -25,13 +25,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.backends.AgenticFramework import AgenticFramework
 from app.models import (
     AddSourceRequest,
-    FrameworkInfo,
+    DataSource,
     ModelFacet,
     ProjectFacet,
     SessionFacets,
     SessionMetadata,
     SessionTrace,
-    SourceInfo,
 )
 from app.registry import AVAILABLE, FrameworkRegistry
 
@@ -120,18 +119,18 @@ def create_app(registry: FrameworkRegistry) -> FastAPI:
         registry.mark_startup_complete()
 
     @app.get("/frameworks/available")
-    def available_frameworks() -> list[FrameworkInfo]:
+    def available_frameworks() -> list[DataSource]:
         """Every framework type the server can build -- the add dropdown catalog."""
         return [
-            FrameworkInfo(alias=cls.alias, name=cls.name, primary_color=cls.primary_color)
+            DataSource(alias=cls.alias, name=cls.name, primary_color=cls.primary_color)
             for cls in registry.available()
         ]
 
     @app.get("/frameworks/detected")
-    def detected_frameworks() -> list[FrameworkInfo]:
+    def detected_frameworks() -> list[DataSource]:
         """Catalog frameworks whose default data location exists but isn't already
         an active source -- the basis for the Manage Data Sources "detected" list."""
-        found: list[FrameworkInfo] = []
+        found: list[DataSource] = []
         for cls in registry.available():
             path = cls.detect()
             if not path:
@@ -140,16 +139,16 @@ def create_app(registry: FrameworkRegistry) -> FastAPI:
                 continue  # default location already added as a source
             probe = cls(path)
             probe.init()
-            found.append(FrameworkInfo(
+            found.append(DataSource(
                 alias=cls.alias, name=cls.name, primary_color=cls.primary_color,
-                data_basepath=path, session_count=len(_safe_sessions(probe)),
+                path=path, session_count=len(_safe_sessions(probe)),
             ))
         return found
 
-    def _source_info(source_id: str, backend: AgenticFramework) -> SourceInfo:
-        return SourceInfo(
+    def _source_info(source_id: str, backend: AgenticFramework) -> DataSource:
+        return DataSource(
             id=source_id,
-            framework=backend.alias,
+            alias=backend.alias,
             name=backend.name,
             primary_color=backend.primary_color,
             path=backend.data_basepath,
@@ -157,7 +156,7 @@ def create_app(registry: FrameworkRegistry) -> FastAPI:
         )
 
     @app.get("/sources")
-    def list_sources() -> list[SourceInfo]:
+    def list_sources() -> list[DataSource]:
         """Every active data source (folder or file), each with its live count."""
         return [_source_info(sid, fw) for sid, fw in registry.active.items()]
 
@@ -185,7 +184,7 @@ def create_app(registry: FrameworkRegistry) -> FastAPI:
         return {"valid": True, "session_count": count, "error": ""}
 
     @app.post("/sources", status_code=201)
-    def add_source(body: AddSourceRequest) -> SourceInfo:
+    def add_source(body: AddSourceRequest) -> DataSource:
         if body.framework not in AVAILABLE:
             known = ", ".join(sorted(AVAILABLE)) or "(none)"
             raise HTTPException(
@@ -260,7 +259,7 @@ def create_app(registry: FrameworkRegistry) -> FastAPI:
             cls = AVAILABLE.get(alias)
             if cls is None or count == 0:
                 continue
-            fw_facets.append(FrameworkInfo(
+            fw_facets.append(DataSource(
                 alias=alias,
                 name=cls.name,
                 primary_color=cls.primary_color,

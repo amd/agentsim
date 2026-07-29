@@ -11,8 +11,7 @@ import {
   fetchSources,
   removeSource,
   validateSource,
-  type FrameworkInfo,
-  type SourceInfo,
+  type DataSource,
 } from "../data/api.js";
 
 // Tell the rest of the app the active set changed so dependent views (e.g. the
@@ -57,7 +56,7 @@ function frameworkTag(name: string, color: string): HTMLElement {
 // Render one active source row: framework tag + path/session-count meta, with a
 // Remove button that drops it server-side (the file/folder on disk is untouched)
 // then refreshes the list.
-function sourceRow(src: SourceInfo, refresh: () => void): HTMLElement {
+function sourceRow(src: DataSource, refresh: () => void): HTMLElement {
   const meta = [src.path, `${src.session_count} sessions`].filter(Boolean).join("  ·  ");
 
   const del = el("button", {
@@ -87,12 +86,12 @@ function sourceRow(src: SourceInfo, refresh: () => void): HTMLElement {
 
 // Render one auto-detected framework: its name + discovered path, with a
 // one-click Add that activates it at that default location.
-function detectedRow(fw: FrameworkInfo, refresh: () => void): HTMLElement {
+function detectedRow(fw: DataSource, refresh: () => void): HTMLElement {
   const add = el("button", { class: "lm-btn lm-btn-secondary", text: "Add", title: `Add ${fw.name}` });
   add.addEventListener("click", async () => {
     add.disabled = true;
     try {
-      await addSource(fw.alias, fw.data_basepath);
+      await addSource(fw.alias, fw.path);
       notifyChanged();
       refresh();
     } catch {
@@ -100,7 +99,7 @@ function detectedRow(fw: FrameworkInfo, refresh: () => void): HTMLElement {
     }
   });
 
-  const meta = [fw.data_basepath, `${fw.session_count} sessions`].filter(Boolean).join("  ·  ");
+  const meta = [fw.path, `${fw.session_count} sessions`].filter(Boolean).join("  ·  ");
 
   return el("div", { class: "ds-row" }, [
     el("div", { class: "ds-row-text" }, [
