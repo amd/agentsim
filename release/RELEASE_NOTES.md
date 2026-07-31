@@ -1,6 +1,10 @@
 ## AgentSim
 
 v0.1.4:
+Fixed UI, and import data bugs. 
+Added session nickname, comments and star features.
+
+v0.1.4:
 Added file import feature with drag-drop.
 
 v0.1.3:
