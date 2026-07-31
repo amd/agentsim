@@ -1,6 +1,6 @@
 ## AgentSim
 
-v0.1.4:
+v0.1.5:
 Fixed UI, and import data bugs. 
 Added session nickname, comments and star features.
 
