@@ -91,7 +91,9 @@ function detectedRow(fw: DataSource, refresh: () => void): HTMLElement {
   add.addEventListener("click", async () => {
     add.disabled = true;
     try {
-      await addSource(fw.alias, fw.path);
+      // A detected source lives at its default location: watch it so new
+      // sessions written there show up automatically.
+      await addSource(fw.alias, fw.path, true);
       notifyChanged();
       refresh();
     } catch {
@@ -110,14 +112,17 @@ function detectedRow(fw: DataSource, refresh: () => void): HTMLElement {
   ]);
 }
 
-// Popup window for one browsed/dropped path: "Select the framework:" over a list
-// of the available frameworks. Clicking one validates it against the path — a
-// valid choice adds the source and closes; an invalid one shows an inline error
+// Popup window for one import unit — a single path, or several files that share
+// a parent folder and become one source. "Select the framework:" over a list of
+// the available frameworks; clicking one validates the framework against the
+// unit and, if valid, adds every path in it (files sharing a parent merge into
+// one source server-side) and closes. An invalid choice shows an inline error
 // and leaves the popup open so the user can try another framework or cancel.
 // This is the single "pick framework → validate → add or discard" gate shared by
 // the Import buttons and drag-drop. Resolves once the popup closes (either way).
-function openFrameworkPicker(path: string): Promise<void> {
+function openFrameworkPicker(paths: string[]): Promise<void> {
   return new Promise((resolve) => {
+    const label = paths.length === 1 ? paths[0] : `${paths.length} files`;
     const message = el("div", { class: "ds-add-msg" });
     const options = el("div", { class: "ds-picker-options" });
 
@@ -131,7 +136,7 @@ function openFrameworkPicker(path: string): Promise<void> {
         closeBtn,
       ]),
       el("div", { class: "ds-picker-body" }, [
-        el("div", { class: "ds-row-meta ds-picker-path", text: path, title: path }),
+        el("div", { class: "ds-row-meta ds-picker-path", text: label, title: paths.join("\n") }),
         options,
         message,
       ]),
@@ -153,14 +158,22 @@ function openFrameworkPicker(path: string): Promise<void> {
       message.classList.remove("error");
       message.textContent = "Verifying…";
       try {
-        const result = await validateSource(alias, path);
+        const result = await validateSource(alias, paths[0]);
         if (!result.valid) {
           message.classList.add("error");
           message.textContent = result.error || "Not a valid data source.";
           options.querySelectorAll("button").forEach((b) => (b.disabled = false));
           return;
         }
-        await addSource(alias, path);
+        // Add each path as a manual (snapshot) source. Files sharing a parent
+        // merge into one source; a 409 means that file was already tracked.
+        for (const p of paths) {
+          try {
+            await addSource(alias, p, false);
+          } catch (e) {
+            if ((e as { status?: number }).status !== 409) throw e;
+          }
+        }
         notifyChanged();
         activeRefresh?.();
         close();
@@ -204,16 +217,39 @@ function openFrameworkPicker(path: string): Promise<void> {
 // picker updates the list without a full reopen. Null when no modal is mounted.
 let activeRefresh: (() => void) | null = null;
 
-// Run one or more dropped/browsed paths through the "pick framework → validate →
-// add" popup, one path at a time. Called by the window-wide drag-drop handler and
-// by the Import buttons.
+// Split a path into its parent directory, handling both separators (dropped
+// paths are OS-native, so Windows uses "\").
+function parentDir(path: string): string {
+  const cut = Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\"));
+  return cut >= 0 ? path.slice(0, cut) : "";
+}
+
+// Tauri's drop payload gives paths without types; a trailing trace-file
+// extension is the reliable signal for "file" vs "folder" here.
+function looksLikeFile(path: string): boolean {
+  return /\.(jsonl|json|db)$/i.test(path);
+}
+
+// Group dropped/browsed paths into import units, then run each through the
+// framework picker. A folder is its own unit (snapshotted whole). Files are
+// grouped by parent folder so files from one folder merge into a single source,
+// while files from different folders become separate sources.
 export function handleDroppedPaths(paths: string[]): void {
   void (async () => {
-    const seen = new Set<string>();
-    for (const path of paths) {
-      if (seen.has(path)) continue;
-      seen.add(path);
-      await openFrameworkPicker(path);
+    const unique = [...new Set(paths)];
+    const folders = unique.filter((p) => !looksLikeFile(p));
+    const filesByParent = new Map<string, string[]>();
+    for (const p of unique.filter(looksLikeFile)) {
+      const parent = parentDir(p);
+      (filesByParent.get(parent) ?? filesByParent.set(parent, []).get(parent)!).push(p);
+    }
+
+    const units: string[][] = [
+      ...folders.map((f) => [f]),
+      ...filesByParent.values(),
+    ];
+    for (const unit of units) {
+      await openFrameworkPicker(unit);
     }
   })();
 }

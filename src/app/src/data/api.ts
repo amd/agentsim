@@ -252,15 +252,21 @@ export async function validateSource(framework: string, path?: string): Promise<
   return (await res.json()) as SourceValidation;
 }
 
-export async function addSource(framework: string, path?: string): Promise<DataSource> {
+export async function addSource(
+  framework: string,
+  path?: string,
+  watch = false,
+): Promise<DataSource> {
   const res = await fetch(`${BASE}/sources`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ framework, path: path || null }),
+    body: JSON.stringify({ framework, path: path || null, watch }),
   });
   if (!res.ok) {
     const detail = await res.json().catch(() => null);
-    throw new Error(detail?.detail || `POST /sources failed: ${res.status}`);
+    const err = new Error(detail?.detail || `POST /sources failed: ${res.status}`);
+    (err as Error & { status?: number }).status = res.status;
+    throw err;
   }
   return (await res.json()) as DataSource;
 }

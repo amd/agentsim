@@ -117,8 +117,11 @@ class SessionFacets(BaseModel):
 
 class AddSourceRequest(BaseModel):
     """Body for adding/validating a source. ``path`` is a folder or a single
-    trace file; ``None`` uses the framework's default data location."""
+    trace file; ``None`` uses the framework's default data location. ``watch``
+    stores the folder as auto-watching (``children="*"``, absorbs new files)
+    instead of freezing a snapshot of the files present now."""
 
     framework: str
     path: str | None = None
+    watch: bool = False
 

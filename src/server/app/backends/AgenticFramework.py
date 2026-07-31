@@ -11,6 +11,7 @@ so adding support for another framework means adding a subclass -- nothing
 else in the server changes.
 """
 
+import os
 from abc import ABC, abstractmethod
 from pathlib import Path
 
@@ -26,6 +27,18 @@ class AgenticFramework(ABC):
     # Prefix stripped from model names before they leave the server, e.g.
     # "claude-" turns "claude-opus-4" into "opus-4". "" leaves names untouched.
     remove_model_nameprefix: str = ""
+    # Whether a source of this framework is a folder of sibling session files
+    # whose membership can be frozen into an explicit child list at import time.
+    # True for file-of-sessions frameworks (Claude Code, Pi); False for
+    # single-database frameworks (Hermes), which always serve their whole db.
+    supports_snapshot: bool = True
+
+    # A source's membership is a "children" set threaded into the backend:
+    #   * ``None`` / ``"*"``  -- discover every parseable file under the parent
+    #                            on each request (auto-watch, canonical location).
+    #   * ``list[str]``       -- serve exactly these files (paths relative to the
+    #                            parent), a frozen snapshot that ignores new files.
+    # Snapshotting frameworks build the list once via ``discover_relative()``.
 
     @classmethod
     def detect(cls) -> str | None:
@@ -35,6 +48,21 @@ class AgenticFramework(ABC):
         """
         path = Path(cls.default_data_basepath)
         return str(path) if path.exists() else None
+
+    def _discover(self) -> list[str]:
+        """Absolute paths of every parseable session file under ``data_basepath``.
+
+        Snapshotting backends override this with their layout globs; the base
+        returns nothing so non-snapshotting frameworks (Hermes) never snapshot.
+        """
+        return []
+
+    def discover_relative(self) -> list[str]:
+        """The discovered session files as paths relative to ``data_basepath``.
+
+        Used by the registry to freeze a folder's membership at import time.
+        """
+        return [os.path.relpath(p, self.data_basepath) for p in self._discover()]
 
     @abstractmethod
     def init(self) -> None:

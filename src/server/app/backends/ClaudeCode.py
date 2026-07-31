@@ -266,8 +266,10 @@ class ClaudeCode(AgenticFramework):
     primary_color = "#D97757"  # Anthropic coral
     remove_model_nameprefix = "claude-"
 
-    def __init__(self, data_dir: Path | str | None = None) -> None:
+    def __init__(self, data_dir: Path | str | None = None,
+                 children: str | list[str] | None = None) -> None:
         self._data_dir = Path(data_dir) if data_dir is not None else None
+        self._children = children
         self.data_basepath = ""
 
 
@@ -280,16 +282,30 @@ class ClaudeCode(AgenticFramework):
     def _projects_dir(self) -> str:
         return os.path.join(self.data_basepath, "projects")
 
+    @staticmethod
+    def _id_of(path: str) -> str:
+        return os.path.basename(path).split(".")[0]
+
+    def _discover(self) -> list[str]:
+        # Both the framework-home nested layout and a plain folder of transcripts
+        # dropped directly inside, so an exported "sessions" folder scans too.
+        nested = glob.glob(os.path.join(self._projects_dir(), "*", "*.jsonl"))
+        direct = glob.glob(os.path.join(self.data_basepath, "*.jsonl"))
+        return sorted(set(nested) | set(direct))
+
     def _session_paths(self) -> list[str]:
-        return glob.glob(os.path.join(self._projects_dir(), "*", "*.jsonl"))
+        if isinstance(self._children, list):
+            return [
+                p for c in self._children
+                if os.path.exists(p := os.path.join(self.data_basepath, c))
+            ]
+        return self._discover()
 
     def _session_path(self, session_id: str) -> str:
-        matches = glob.glob(os.path.join(self._projects_dir(), "*", f"{session_id}.jsonl"))
-        if not matches:
-            matches = glob.glob(os.path.join(self._projects_dir(), f"{session_id}.jsonl"))
-        if not matches:
-            raise FileNotFoundError(f"unknown session: {session_id}")
-        return matches[0]
+        for path in self._session_paths():
+            if self._id_of(path) == session_id:
+                return path
+        raise FileNotFoundError(f"unknown session: {session_id}")
 
     def get_sessions_list(self) -> list[SessionMetadata]:
         if os.path.isfile(self.data_basepath):

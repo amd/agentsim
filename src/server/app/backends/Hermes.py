@@ -124,8 +124,14 @@ class Hermes(AgenticFramework):
     alias = "hermes"
     default_data_basepath = _default_hermes_home()
     primary_color = "#8A63D2"  # Nous purple
+    # A Hermes source is one SQLite db holding many sessions, not a folder of
+    # sibling files, so membership is never frozen -- it always serves the db.
+    supports_snapshot = False
 
-    def __init__(self, data_dir: Path | str | None = None) -> None:
+    def __init__(self, data_dir: Path | str | None = None,
+                 children: str | list[str] | None = None) -> None:
+        # ``children`` accepted for constructor parity with folder backends;
+        # Hermes always serves its whole db, so it is ignored.
         self._data_dir = Path(data_dir) if data_dir is not None else None
         self.data_basepath = ""
 

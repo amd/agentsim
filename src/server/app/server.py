@@ -196,8 +196,11 @@ def create_app(registry: FrameworkRegistry) -> FastAPI:
         result = validate_source(body)
         if not result["valid"]:
             raise HTTPException(status_code=422, detail=str(result["error"]))
+        # The default location (no explicit path) is always auto-watched;
+        # otherwise the client asks for watch (detected add) vs snapshot (manual).
+        watch = body.watch or body.path is None
         try:
-            source_id, backend = registry.add(body.framework, body.path)
+            source_id, backend = registry.add(body.framework, body.path, watch)
         except ValueError:
             raise HTTPException(status_code=409, detail="source already active for this path")
         return _source_info(source_id, backend)

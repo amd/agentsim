@@ -350,22 +350,43 @@ class Pi(AgenticFramework):
 
     remove_model_nameprefix = ""
 
-    def __init__(self, data_dir: Path | str | None = None) -> None:
+    def __init__(self, data_dir: Path | str | None = None,
+                 children: str | list[str] | None = None) -> None:
         self._data_dir = Path(data_dir) if data_dir is not None else None
+        self._children = children
         self.data_basepath = ""
 
     def init(self) -> None:
         base = self._data_dir if self._data_dir is not None else self.default_data_basepath
         self.data_basepath = str(base)
 
+    @staticmethod
+    def _id_of(path: str) -> str:
+        # Pi transcripts are "<timestamp>_<uuid>.jsonl"; the session id is the
+        # uuid part, or the whole stem for arbitrary imported files.
+        stem = os.path.basename(path).replace(".jsonl", "")
+        return stem.split("_", 1)[1] if "_" in stem else stem
+
+    def _discover(self) -> list[str]:
+        # One-subfolder-per-session layout, plus transcripts sitting directly in
+        # the folder (an exported/copied sessions folder).
+        nested = glob.glob(os.path.join(self.data_basepath, "*", "*.jsonl"))
+        direct = glob.glob(os.path.join(self.data_basepath, "*.jsonl"))
+        return sorted(set(nested) | set(direct))
+
     def _session_paths(self) -> list[str]:
-        return glob.glob(os.path.join(self.data_basepath, "*", "*.jsonl"))
+        if isinstance(self._children, list):
+            return [
+                p for c in self._children
+                if os.path.exists(p := os.path.join(self.data_basepath, c))
+            ]
+        return self._discover()
 
     def _session_path(self, session_id: str) -> str:
-        matches = glob.glob(os.path.join(self.data_basepath, "*", f"*_{session_id}.jsonl"))
-        if not matches:
-            raise FileNotFoundError(f"unknown session: {session_id}")
-        return matches[0]
+        for path in self._session_paths():
+            if self._id_of(path) == session_id:
+                return path
+        raise FileNotFoundError(f"unknown session: {session_id}")
 
     def get_sessions_list(self) -> list[SessionMetadata]:
         if os.path.isfile(self.data_basepath):
