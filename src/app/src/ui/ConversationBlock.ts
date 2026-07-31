@@ -4,6 +4,8 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import { el } from "./dom.js";
+import { fetchSessionConfig, updateSessionConfig } from "../data/api.js";
+import type { SessionUserConfigPatch } from "../data/api.js";
 import type { Conversation } from "../data/conversations.js";
 
 const dateFmt = new Intl.DateTimeFormat(undefined, {
@@ -19,6 +21,10 @@ const timeFmt = new Intl.DateTimeFormat(undefined, {
 // Three-dot "more options" icon (filled dots so they read at small sizes).
 const KEBAB_SVG =
   '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2.4"></circle><circle cx="12" cy="12" r="2.4"></circle><circle cx="19" cy="12" r="2.4"></circle></svg>';
+
+// Filled star, shown on favorited rows next to the title.
+const STAR_SVG =
+  '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>';
 
 // Only one kebab menu open at a time across all blocks.
 let activeKebabClose: (() => void) | null = null;
@@ -122,6 +128,141 @@ async function launchSession(conversation: Conversation): Promise<void> {
   }
 }
 
+// Flip the favorite flag on the server, mirror it locally, and let the sidebar
+// re-render (so the star glyph and any active Favorites filter stay in sync).
+async function toggleFavorite(conversation: Conversation): Promise<void> {
+  const next = !conversation.isFavorite;
+  try {
+    await updateSessionConfig(conversation.framework, conversation.id, { is_favorite: next });
+    conversation.isFavorite = next;
+    window.dispatchEvent(new Event("sessions:changed"));
+  } catch (err) {
+    console.error("[conversation] toggle favorite failed", err);
+  }
+}
+
+// Which per-session text field the editor writes. Both are string columns on
+// SessionUserConfig and on Conversation, so the modal is field-agnostic.
+type EditableField = "nickname" | "comments";
+
+interface SessionEditOptions {
+  field: EditableField;
+  title: string;
+  // false → single-line <input> (nickname); true → multi-line <textarea>
+  // (comments). This is the only structural difference between the two editors.
+  multiline: boolean;
+  initialValue: string;
+  placeholder: string;
+  // Run after a successful save/clear (e.g. nickname re-renders the sidebar).
+  onSaved?: () => void;
+}
+
+// Shared modal to set/clear one per-session text field. Reuses the overlay/modal
+// styles from Manage Data Sources. Saving an empty value clears the field (the
+// server merges "" back toward default, deleting the file if all-default).
+function editSessionField(conversation: Conversation, opts: SessionEditOptions): void {
+  const editor = (
+    opts.multiline
+      ? el("textarea", { class: "session-edit-textarea", placeholder: opts.placeholder })
+      : el("input", { class: "session-edit-input", type: "text", placeholder: opts.placeholder })
+  ) as HTMLInputElement | HTMLTextAreaElement;
+  editor.value = opts.initialValue;
+
+  const closeBtn = el("button", {
+    class: "lm-icon-btn ds-close", "aria-label": "Close", text: "✕",
+  });
+  const cancel = el("button", { class: "lm-btn lm-btn-secondary", text: "Cancel" });
+  const save = el("button", { class: "lm-btn lm-btn-primary", text: "Save" });
+  // Only offer delete when a value is actually set.
+  const del = opts.initialValue
+    ? el("button", { class: "lm-btn lm-btn-danger", text: "Delete" })
+    : null;
+
+  const modal = el("div", { class: "ds-picker session-edit" }, [
+    el("div", { class: "ds-header" }, [
+      el("h3", { class: "ds-title", text: opts.title }),
+      closeBtn,
+    ]),
+    el("div", { class: "ds-picker-body" }, [
+      editor,
+      el("div", { class: "session-edit-actions" }, [
+        ...(del ? [del] : []),
+        el("div", { class: "session-edit-actions-right" }, [cancel, save]),
+      ]),
+    ]),
+  ]);
+  const overlay = el("div", { class: "ds-overlay" }, [modal]);
+
+  const close = () => {
+    overlay.remove();
+    document.removeEventListener("keydown", onKey);
+  };
+  const onKey = (e: KeyboardEvent) => {
+    if (e.key === "Escape") close();
+    // Enter commits single-line inputs; a textarea keeps Enter for newlines.
+    else if (e.key === "Enter" && !opts.multiline) void commit();
+  };
+  const commit = async (): Promise<void> => {
+    const value = editor.value.trim();
+    const patch: SessionUserConfigPatch =
+      opts.field === "comments" ? { comments: value } : { nickname: value };
+    try {
+      await updateSessionConfig(conversation.framework, conversation.id, patch);
+      conversation[opts.field] = value;
+      opts.onSaved?.();
+    } catch (err) {
+      console.error(`[conversation] set ${opts.field} failed`, err);
+    }
+    close();
+  };
+
+  closeBtn.addEventListener("click", close);
+  cancel.addEventListener("click", close);
+  save.addEventListener("click", () => void commit());
+  del?.addEventListener("click", () => {
+    editor.value = "";
+    void commit();
+  });
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) close();
+  });
+  document.addEventListener("keydown", onKey);
+
+  document.body.append(overlay);
+  editor.focus();
+  if (!opts.multiline) (editor as HTMLInputElement).select();
+}
+
+// Nickname is displayed in the sidebar, so a change must re-render the list.
+function editNickname(conversation: Conversation): void {
+  editSessionField(conversation, {
+    field: "nickname",
+    title: "Set nickname",
+    multiline: false,
+    initialValue: conversation.nickname,
+    placeholder: conversation.title,
+    onSaved: () => window.dispatchEvent(new Event("sessions:changed")),
+  });
+}
+
+// Comments aren't in the list payload, so fetch the current value before opening
+// the editor. They're not shown in the sidebar, so no sessions:changed on save.
+async function editComments(conversation: Conversation): Promise<void> {
+  try {
+    const cfg = await fetchSessionConfig(conversation.framework, conversation.id);
+    conversation.comments = cfg.comments;
+  } catch (err) {
+    console.error("[conversation] fetch comments failed", err);
+  }
+  editSessionField(conversation, {
+    field: "comments",
+    title: "Edit comments",
+    multiline: true,
+    initialValue: conversation.comments,
+    placeholder: "Add comments…",
+  });
+}
+
 function createKebab(conversation: Conversation): HTMLElement {
   const btn = el("button", {
     class: "conversation-kebab lm-icon-btn",
@@ -130,10 +271,26 @@ function createKebab(conversation: Conversation): HTMLElement {
   });
   btn.innerHTML = KEBAB_SVG;
 
-  const launchItem = el("div", { class: "item", text: "Launch Session" });
+  const starItem = el("div", {
+    class: "item",
+    text: conversation.isFavorite ? "Unstar" : "Star",
+  });
+  const nicknameItem = el("div", { class: "item", text: "Set Nickname…" });
+  const commentsItem = el("div", { class: "item", text: "Edit Comments…" });
+  // Launch resumes the session via the `claude` CLI, so it's only meaningful for
+  // Claude Code sessions; other frameworks omit it entirely.
+  const canLaunch = conversation.framework === "claudecode";
+  const launchItem = canLaunch ? el("div", { class: "item", text: "Launch Session" }) : null;
   const projectItem = el("div", { class: "item", text: "Open Project Folder" });
   const dataItem = el("div", { class: "item", text: "Open Transcript Folder" });
-  const menu = el("div", { class: "lm-menu kebab-menu" }, [launchItem, projectItem, dataItem]);
+  const menu = el("div", { class: "lm-menu kebab-menu" }, [
+    starItem,
+    nicknameItem,
+    commentsItem,
+    ...(launchItem ? [launchItem] : []),
+    projectItem,
+    dataItem,
+  ]);
   menu.style.display = "none";
 
   const close = () => {
@@ -154,7 +311,19 @@ function createKebab(conversation: Conversation): HTMLElement {
     if (!isOpen) open();
   });
   menu.addEventListener("click", (e) => e.stopPropagation());
-  launchItem.addEventListener("click", () => {
+  starItem.addEventListener("click", () => {
+    close();
+    void toggleFavorite(conversation);
+  });
+  nicknameItem.addEventListener("click", () => {
+    close();
+    editNickname(conversation);
+  });
+  commentsItem.addEventListener("click", () => {
+    close();
+    void editComments(conversation);
+  });
+  launchItem?.addEventListener("click", () => {
     close();
     void launchSession(conversation);
   });
@@ -196,11 +365,18 @@ export function createConversationBlock(
     frameworkChip,
   ]);
 
+  const star = el("span", { class: "conversation-star", title: "Favorite" });
+  star.innerHTML = STAR_SVG;
+
+  // A nickname (if set) replaces the title in the list; the original title stays
+  // reachable as the hover tooltip.
+  const titleText = conversation.nickname || conversation.title;
   const title = el("div", { class: "conversation-title-row" }, [
     ...(conversation.isLive
       ? [el("span", { class: "live-dot", title: "Live" })]
       : []),
-    el("span", { class: "conversation-title", text: conversation.title }),
+    ...(conversation.isFavorite ? [star] : []),
+    el("span", { class: "conversation-title", text: titleText, title: conversation.title }),
     createKebab(conversation),
   ]);
 

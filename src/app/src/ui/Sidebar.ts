@@ -152,6 +152,10 @@ export function createSidebar(): HTMLElement {
     void renderList(emptyFilters());
   });
 
+  // A per-session change (star/nickname) doesn't touch the facets or filters, so
+  // just re-fetch the list with the filters already applied.
+  window.addEventListener("sessions:changed", () => void renderList(currentFilters));
+
   void renderList(emptyFilters());
 
   return el("aside", { class: "sidebar" }, [header, list]);

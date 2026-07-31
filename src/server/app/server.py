@@ -31,8 +31,11 @@ from app.models import (
     SessionFacets,
     SessionMetadata,
     SessionTrace,
+    SessionUserConfig,
+    SessionUserConfigUpdate,
 )
 from app.registry import AVAILABLE, FrameworkRegistry
+from app.session_config import SessionConfigStore
 
 
 def _csv(value: str | None) -> set[str]:
@@ -51,7 +54,16 @@ def _parse_ts(timestamp: str) -> datetime | None:
         return None
 
 
-def create_app(registry: FrameworkRegistry) -> FastAPI:
+def create_app(
+    registry: FrameworkRegistry, store: SessionConfigStore | None = None
+) -> FastAPI:
+    # A default store (rooted at the standard cache dir) keeps existing callers
+    # -- notably the TestClient harness -- working with the single-arg signature.
+    if store is None:
+        from app.main import build_store
+
+        store = build_store()
+
     app = FastAPI(title="AgentSim")
 
     app.add_middleware(
@@ -92,6 +104,10 @@ def create_app(registry: FrameworkRegistry) -> FastAPI:
                 item.model_display = item.model[len(prefix):]
             else:
                 item.model_display = item.model
+            # Overlay user-owned metadata (keyed by framework + session id).
+            user = store.get(backend.alias, item.session_id)
+            item.is_favorite = user.is_favorite
+            item.nickname = user.nickname
         return items
 
     def _all_sessions() -> list[SessionMetadata]:
@@ -137,7 +153,9 @@ def create_app(registry: FrameworkRegistry) -> FastAPI:
                 continue
             if registry.get(FrameworkRegistry._source_id(path)) is not None:
                 continue  # default location already added as a source
-            probe = cls(path)
+            # The default location is the canonical ("*") layout: count via that
+            # trusted view (fast, metadata-only) rather than a validating scan.
+            probe = cls(path, "*")
             probe.init()
             found.append(DataSource(
                 alias=cls.alias, name=cls.name, primary_color=cls.primary_color,
@@ -196,8 +214,11 @@ def create_app(registry: FrameworkRegistry) -> FastAPI:
         result = validate_source(body)
         if not result["valid"]:
             raise HTTPException(status_code=422, detail=str(result["error"]))
+        # The default location (no explicit path) is always auto-watched;
+        # otherwise the client asks for watch (detected add) vs snapshot (manual).
+        watch = body.watch or body.path is None
         try:
-            source_id, backend = registry.add(body.framework, body.path)
+            source_id, backend = registry.add(body.framework, body.path, watch)
         except ValueError:
             raise HTTPException(status_code=409, detail="source already active for this path")
         return _source_info(source_id, backend)
@@ -213,6 +234,7 @@ def create_app(registry: FrameworkRegistry) -> FastAPI:
     def list_sessions(
         framework: str | None = Query(default=None, description="CSV of framework aliases"),
         live: bool | None = Query(default=None),
+        favorite: bool | None = Query(default=None),
         project: str | None = Query(default=None, description="CSV of full project paths"),
         model: str | None = Query(default=None, description="CSV of model names"),
         from_: str | None = Query(default=None, alias="from", description="ISO instant"),
@@ -229,6 +251,8 @@ def create_app(registry: FrameworkRegistry) -> FastAPI:
             if wanted_fw and s.framework not in wanted_fw:
                 continue
             if live is not None and s.is_live != live:
+                continue
+            if favorite is not None and s.is_favorite != favorite:
                 continue
             if wanted_proj and s.project_path not in wanted_proj:
                 continue
@@ -297,5 +321,22 @@ def create_app(registry: FrameworkRegistry) -> FastAPI:
             return backend.get_session_trace(session_id)
         except FileNotFoundError:
             raise HTTPException(status_code=404, detail=f"unknown session: {session_id}")
+
+    # User-owned per-session metadata (favorite/nickname/comments). Keyed by
+    # (framework, session_id) so it's independent of which source surfaced the
+    # session and survives a source being removed and re-added.
+    @app.get("/session-configs/{framework}/{session_id}")
+    def get_session_config(framework: str, session_id: str) -> SessionUserConfig:
+        if framework not in AVAILABLE:
+            raise HTTPException(status_code=422, detail=f"unknown framework: {framework}")
+        return store.get(framework, session_id)
+
+    @app.patch("/session-configs/{framework}/{session_id}")
+    def patch_session_config(
+        framework: str, session_id: str, body: SessionUserConfigUpdate
+    ) -> SessionUserConfig:
+        if framework not in AVAILABLE:
+            raise HTTPException(status_code=422, detail=f"unknown framework: {framework}")
+        return store.update(framework, session_id, body)
 
     return app

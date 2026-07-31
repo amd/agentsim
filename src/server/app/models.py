@@ -61,6 +61,11 @@ class SessionMetadata(BaseModel):
     model_display: str = ""  # human-facing label (prefix-stripped); falls back to model
     effort_level: str
 
+    # User-owned metadata stamped from SessionConfigStore. ``comments`` is left
+    # out of the list payload (potentially large); it's fetched on demand.
+    is_favorite: bool = False
+    nickname: str = ""  # display name overriding the title in the sidebar, if set
+
     timestamp_created: str
     timestamp_modified: str
 
@@ -115,10 +120,33 @@ class SessionFacets(BaseModel):
     models: list[ModelFacet]
 
 
+class SessionUserConfig(BaseModel):
+    """User-owned metadata for one session, persisted by SessionConfigStore.
+
+    All-defaults means "no file" -- the store creates a file only when the user
+    sets something and deletes it when everything reverts to these defaults."""
+
+    is_favorite: bool = False
+    nickname: str = ""
+    comments: str = ""
+
+
+class SessionUserConfigUpdate(BaseModel):
+    """Partial update for a session's user config: a ``None`` field is left
+    unchanged, so a star toggle never clobbers an existing nickname/comments."""
+
+    is_favorite: bool | None = None
+    nickname: str | None = None
+    comments: str | None = None
+
+
 class AddSourceRequest(BaseModel):
     """Body for adding/validating a source. ``path`` is a folder or a single
-    trace file; ``None`` uses the framework's default data location."""
+    trace file; ``None`` uses the framework's default data location. ``watch``
+    stores the folder as auto-watching (``children="*"``, absorbs new files)
+    instead of freezing a snapshot of the files present now."""
 
     framework: str
     path: str | None = None
+    watch: bool = False
 

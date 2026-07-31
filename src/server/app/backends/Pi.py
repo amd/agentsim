@@ -350,22 +350,53 @@ class Pi(AgenticFramework):
 
     remove_model_nameprefix = ""
 
-    def __init__(self, data_dir: Path | str | None = None) -> None:
+    def __init__(self, data_dir: Path | str | None = None,
+                 children: str | list[str] | None = None) -> None:
         self._data_dir = Path(data_dir) if data_dir is not None else None
+        self._children = children
         self.data_basepath = ""
 
     def init(self) -> None:
         base = self._data_dir if self._data_dir is not None else self.default_data_basepath
         self.data_basepath = str(base)
 
+    @staticmethod
+    def _id_of(path: str) -> str:
+        # Pi transcripts are "<timestamp>_<uuid>.jsonl"; the session id is the
+        # uuid part, or the whole stem for arbitrary imported files.
+        stem = os.path.basename(path).replace(".jsonl", "")
+        return stem.split("_", 1)[1] if "_" in stem else stem
+
+    def _discover(self) -> list[str]:
+        # Canonical layout only: one subfolder per session. The "*" (watch) view
+        # serves exactly this known location, never loose files elsewhere.
+        return sorted(glob.glob(os.path.join(self.data_basepath, "*", "*.jsonl")))
+
+    def _snapshot_candidates(self) -> list[str]:
+        # An arbitrary imported folder may hold transcripts nested (a copied
+        # sessions home) or sitting directly inside (an export); scan both.
+        # is_session_file() then filters out non-session files.
+        nested = glob.glob(os.path.join(self.data_basepath, "*", "*.jsonl"))
+        direct = glob.glob(os.path.join(self.data_basepath, "*.jsonl"))
+        return sorted(set(nested) | set(direct))
+
     def _session_paths(self) -> list[str]:
-        return glob.glob(os.path.join(self.data_basepath, "*", "*.jsonl"))
+        if isinstance(self._children, list):
+            return [
+                p for c in self._children
+                if os.path.exists(p := os.path.join(self.data_basepath, c))
+            ]
+        if self._children == "*":
+            return self._discover()  # canonical location, trusted layout
+        # children is None: a validate/manual probe -- scan broadly but keep only
+        # files that parse as real sessions.
+        return [p for p in self._snapshot_candidates() if self.is_session_file(p)]
 
     def _session_path(self, session_id: str) -> str:
-        matches = glob.glob(os.path.join(self.data_basepath, "*", f"*_{session_id}.jsonl"))
-        if not matches:
-            raise FileNotFoundError(f"unknown session: {session_id}")
-        return matches[0]
+        for path in self._session_paths():
+            if self._id_of(path) == session_id:
+                return path
+        raise FileNotFoundError(f"unknown session: {session_id}")
 
     def get_sessions_list(self) -> list[SessionMetadata]:
         if os.path.isfile(self.data_basepath):
@@ -374,17 +405,13 @@ class Pi(AgenticFramework):
 
         sessions: list[SessionMetadata] = []
         for path in self._session_paths():
-            basename = os.path.basename(path)
-            try:
-                session_id = basename.split("_", 1)[1].replace(".jsonl", "")
-            except IndexError:
-                continue
+            session_id = self._id_of(path)
             try:
                 records = _parse_session_file(path)
-            except (json.JSONDecodeError, OSError) as error:
-                print(f"[pi] failed to parse {path}: {error}")
+                sessions.append(_metadata_from_records(records, path, session_id))
+            except Exception as error:  # one unreadable file never drops the rest
+                print(f"[pi] failed to read {path}: {error}")
                 continue
-            sessions.append(_metadata_from_records(records, path, session_id))
         return sessions
 
     def get_session_trace(self, session_id: str) -> SessionTrace:

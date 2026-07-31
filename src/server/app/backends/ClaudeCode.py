@@ -266,8 +266,10 @@ class ClaudeCode(AgenticFramework):
     primary_color = "#D97757"  # Anthropic coral
     remove_model_nameprefix = "claude-"
 
-    def __init__(self, data_dir: Path | str | None = None) -> None:
+    def __init__(self, data_dir: Path | str | None = None,
+                 children: str | list[str] | None = None) -> None:
         self._data_dir = Path(data_dir) if data_dir is not None else None
+        self._children = children
         self.data_basepath = ""
 
 
@@ -280,16 +282,41 @@ class ClaudeCode(AgenticFramework):
     def _projects_dir(self) -> str:
         return os.path.join(self.data_basepath, "projects")
 
+    @staticmethod
+    def _id_of(path: str) -> str:
+        return os.path.basename(path).split(".")[0]
+
+    def _discover(self) -> list[str]:
+        # Canonical layout only: transcripts live under projects/<project>/<id>.jsonl.
+        # Loose *.jsonl in the home (history.jsonl, etc.) are not sessions, so the
+        # "*" (watch) view must not sweep them in.
+        return sorted(glob.glob(os.path.join(self._projects_dir(), "*", "*.jsonl")))
+
+    def _snapshot_candidates(self) -> list[str]:
+        # An arbitrary imported folder may hold transcripts nested (a copied
+        # ~/.claude) or sitting directly inside (an exported "sessions" folder);
+        # scan both. is_session_file() then filters out non-session files.
+        nested = glob.glob(os.path.join(self._projects_dir(), "*", "*.jsonl"))
+        direct = glob.glob(os.path.join(self.data_basepath, "*.jsonl"))
+        return sorted(set(nested) | set(direct))
+
     def _session_paths(self) -> list[str]:
-        return glob.glob(os.path.join(self._projects_dir(), "*", "*.jsonl"))
+        if isinstance(self._children, list):
+            return [
+                p for c in self._children
+                if os.path.exists(p := os.path.join(self.data_basepath, c))
+            ]
+        if self._children == "*":
+            return self._discover()  # canonical location, trusted layout
+        # children is None: a validate/manual probe -- scan broadly but keep only
+        # files that parse as real sessions.
+        return [p for p in self._snapshot_candidates() if self.is_session_file(p)]
 
     def _session_path(self, session_id: str) -> str:
-        matches = glob.glob(os.path.join(self._projects_dir(), "*", f"{session_id}.jsonl"))
-        if not matches:
-            matches = glob.glob(os.path.join(self._projects_dir(), f"{session_id}.jsonl"))
-        if not matches:
-            raise FileNotFoundError(f"unknown session: {session_id}")
-        return matches[0]
+        for path in self._session_paths():
+            if self._id_of(path) == session_id:
+                return path
+        raise FileNotFoundError(f"unknown session: {session_id}")
 
     def get_sessions_list(self) -> list[SessionMetadata]:
         if os.path.isfile(self.data_basepath):
@@ -301,10 +328,10 @@ class ClaudeCode(AgenticFramework):
             session_id = os.path.basename(path).split(".")[0]
             try:
                 records = _parse_session_file(path)
-            except json.JSONDecodeError as error:
-                print(f"[claudecode] failed to parse {path}: {error}")
+                sessions.append(_metadata_from_records(records, path, session_id))
+            except Exception as error:  # one unreadable file never drops the rest
+                print(f"[claudecode] failed to read {path}: {error}")
                 continue
-            sessions.append(_metadata_from_records(records, path, session_id))
         return sessions
 
     def get_session_trace(self, session_id: str) -> SessionTrace:
