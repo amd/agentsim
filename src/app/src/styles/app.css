@@ -778,6 +778,56 @@ html, body {
     cursor: default;
 }
 
+/* --- Session edit modal (nickname / comments) --------------------------- */
+.session-edit-input {
+    width: 100%;
+    padding: 8px 10px;
+    font-size: 0.85rem;
+    color: var(--text-primary);
+    background: var(--bg-alpha-03);
+    border: 1px solid var(--border-primary);
+    border-radius: var(--radius-md);
+}
+
+.session-edit-input:focus {
+    outline: none;
+    border-color: var(--border-5);
+}
+
+.session-edit-textarea {
+    width: 100%;
+    min-height: 180px;
+    resize: vertical;
+    padding: 8px 10px;
+    font-size: 0.85rem;
+    line-height: 1.45;
+    color: var(--text-primary);
+    background: var(--bg-alpha-03);
+    border: 1px solid var(--border-primary);
+    border-radius: var(--radius-md);
+    font-family: inherit;
+}
+
+.session-edit-textarea:focus {
+    outline: none;
+    border-color: var(--border-5);
+}
+
+.session-edit-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+/* Compact button metrics for the edit modals, matching the data-source rows. */
+.session-edit .lm-btn {
+    padding: 5px 14px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    text-transform: none;
+    letter-spacing: 0;
+}
+
 /* --- Main canvas (3 stacked sections, 70/20/10) -------------------------- */
 .canvas {
     flex: 1;

@@ -140,6 +140,67 @@ async function toggleFavorite(conversation: Conversation): Promise<void> {
   }
 }
 
+// Small modal to set/clear a session's nickname. Reuses the shared overlay/modal
+// styles from Manage Data Sources. Saving an empty value clears the nickname.
+function editNickname(conversation: Conversation): void {
+  const input = el("input", {
+    class: "session-edit-input",
+    type: "text",
+    placeholder: conversation.title,
+  }) as HTMLInputElement;
+  input.value = conversation.nickname;
+
+  const closeBtn = el("button", {
+    class: "lm-icon-btn ds-close", "aria-label": "Close", text: "✕",
+  });
+  const cancel = el("button", { class: "lm-btn lm-btn-secondary", text: "Cancel" });
+  const save = el("button", { class: "lm-btn lm-btn-primary", text: "Save" });
+
+  const modal = el("div", { class: "ds-picker session-edit" }, [
+    el("div", { class: "ds-header" }, [
+      el("h3", { class: "ds-title", text: "Set nickname" }),
+      closeBtn,
+    ]),
+    el("div", { class: "ds-picker-body" }, [
+      input,
+      el("div", { class: "session-edit-actions" }, [cancel, save]),
+    ]),
+  ]);
+  const overlay = el("div", { class: "ds-overlay" }, [modal]);
+
+  const close = () => {
+    overlay.remove();
+    document.removeEventListener("keydown", onKey);
+  };
+  const onKey = (e: KeyboardEvent) => {
+    if (e.key === "Escape") close();
+    else if (e.key === "Enter") void commit();
+  };
+  const commit = async (): Promise<void> => {
+    const nickname = input.value.trim();
+    try {
+      await updateSessionConfig(conversation.framework, conversation.id, { nickname });
+      conversation.nickname = nickname;
+      window.dispatchEvent(new Event("sessions:changed"));
+    } catch (err) {
+      console.error("[conversation] set nickname failed", err);
+    }
+    close();
+  };
+
+  closeBtn.addEventListener("click", close);
+  cancel.addEventListener("click", close);
+  save.addEventListener("click", () => void commit());
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) close();
+  });
+  document.addEventListener("keydown", onKey);
+
+  document.body.append(overlay);
+  input.focus();
+  input.select();
+}
+
 function createKebab(conversation: Conversation): HTMLElement {
   const btn = el("button", {
     class: "conversation-kebab lm-icon-btn",
@@ -152,6 +213,7 @@ function createKebab(conversation: Conversation): HTMLElement {
     class: "item",
     text: conversation.isFavorite ? "Unstar" : "Star",
   });
+  const nicknameItem = el("div", { class: "item", text: "Set Nickname…" });
   // Launch resumes the session via the `claude` CLI, so it's only meaningful for
   // Claude Code sessions; other frameworks omit it entirely.
   const canLaunch = conversation.framework === "claudecode";
@@ -160,6 +222,7 @@ function createKebab(conversation: Conversation): HTMLElement {
   const dataItem = el("div", { class: "item", text: "Open Transcript Folder" });
   const menu = el("div", { class: "lm-menu kebab-menu" }, [
     starItem,
+    nicknameItem,
     ...(launchItem ? [launchItem] : []),
     projectItem,
     dataItem,
@@ -187,6 +250,10 @@ function createKebab(conversation: Conversation): HTMLElement {
   starItem.addEventListener("click", () => {
     close();
     void toggleFavorite(conversation);
+  });
+  nicknameItem.addEventListener("click", () => {
+    close();
+    editNickname(conversation);
   });
   launchItem?.addEventListener("click", () => {
     close();
@@ -233,12 +300,15 @@ export function createConversationBlock(
   const star = el("span", { class: "conversation-star", title: "Favorite" });
   star.innerHTML = STAR_SVG;
 
+  // A nickname (if set) replaces the title in the list; the original title stays
+  // reachable as the hover tooltip.
+  const titleText = conversation.nickname || conversation.title;
   const title = el("div", { class: "conversation-title-row" }, [
     ...(conversation.isLive
       ? [el("span", { class: "live-dot", title: "Live" })]
       : []),
     ...(conversation.isFavorite ? [star] : []),
-    el("span", { class: "conversation-title", text: conversation.title }),
+    el("span", { class: "conversation-title", text: titleText, title: conversation.title }),
     createKebab(conversation),
   ]);
 
