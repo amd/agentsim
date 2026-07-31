@@ -67,6 +67,8 @@ interface WireSession {
   timestamp_modified: string;
   source_id: string;
   framework: string;
+  is_favorite: boolean;
+  nickname: string;
 }
 
 // A data source the server knows about, at any life stage: the catalog of
@@ -143,6 +145,9 @@ function toConversation(s: WireSession, meta: Map<string, FrameworkMeta>): Conve
     model: s.model,
     modelDisplay: s.model_display || s.model,
     effort: (s.effort_level || "medium") as Conversation["effort"],
+    isFavorite: s.is_favorite,
+    nickname: s.nickname,
+    comments: "", // loaded on demand via fetchSessionConfig (not in the list payload)
   };
 }
 
@@ -170,6 +175,7 @@ function queryFor(filters: Filters): string {
   const params = new URLSearchParams();
   if (filters.frameworks.size > 0) params.set("framework", [...filters.frameworks].join(","));
   if (filters.live) params.set("live", "true");
+  if (filters.favorites) params.set("favorite", "true");
   if (filters.projects.size > 0) params.set("project", [...filters.projects].join(","));
   if (filters.models.size > 0) params.set("model", [...filters.models].join(","));
   const { from, to } = dateRange(filters.date);
@@ -279,4 +285,47 @@ export async function removeSource(id: string): Promise<void> {
     const detail = await res.json().catch(() => null);
     throw new Error(detail?.detail || `DELETE /sources/${id} failed: ${res.status}`);
   }
+}
+
+// --- Per-session user config (favorite / nickname / comments) ---------------
+// User-owned metadata the frameworks don't provide, keyed by (framework,
+// session_id) on the server so it's independent of the source that surfaced the
+// session. The list payload carries is_favorite + nickname; comments are fetched
+// on demand here (they can be large).
+
+export interface SessionUserConfig {
+  is_favorite: boolean;
+  nickname: string;
+  comments: string;
+}
+
+export type SessionUserConfigPatch = Partial<SessionUserConfig>;
+
+function sessionConfigUrl(framework: string, sessionId: string): string {
+  return `${BASE}/session-configs/${encodeURIComponent(framework)}/${encodeURIComponent(sessionId)}`;
+}
+
+export async function fetchSessionConfig(
+  framework: string,
+  sessionId: string,
+): Promise<SessionUserConfig> {
+  const res = await fetch(sessionConfigUrl(framework, sessionId));
+  if (!res.ok) throw new Error(`GET session config failed: ${res.status}`);
+  return (await res.json()) as SessionUserConfig;
+}
+
+// Partial update: only the provided fields change (a star toggle won't clobber a
+// nickname/comments). Returns the merged config.
+export async function updateSessionConfig(
+  framework: string,
+  sessionId: string,
+  patch: SessionUserConfigPatch,
+): Promise<SessionUserConfig> {
+  const res = await fetch(sessionConfigUrl(framework, sessionId), {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(patch),
+  });
+  if (!res.ok) throw new Error(`PATCH session config failed: ${res.status}`);
+  return (await res.json()) as SessionUserConfig;
 }

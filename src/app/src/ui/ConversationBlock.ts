@@ -4,6 +4,7 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import { el } from "./dom.js";
+import { updateSessionConfig } from "../data/api.js";
 import type { Conversation } from "../data/conversations.js";
 
 const dateFmt = new Intl.DateTimeFormat(undefined, {
@@ -19,6 +20,10 @@ const timeFmt = new Intl.DateTimeFormat(undefined, {
 // Three-dot "more options" icon (filled dots so they read at small sizes).
 const KEBAB_SVG =
   '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2.4"></circle><circle cx="12" cy="12" r="2.4"></circle><circle cx="19" cy="12" r="2.4"></circle></svg>';
+
+// Filled star, shown on favorited rows next to the title.
+const STAR_SVG =
+  '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>';
 
 // Only one kebab menu open at a time across all blocks.
 let activeKebabClose: (() => void) | null = null;
@@ -122,6 +127,19 @@ async function launchSession(conversation: Conversation): Promise<void> {
   }
 }
 
+// Flip the favorite flag on the server, mirror it locally, and let the sidebar
+// re-render (so the star glyph and any active Favorites filter stay in sync).
+async function toggleFavorite(conversation: Conversation): Promise<void> {
+  const next = !conversation.isFavorite;
+  try {
+    await updateSessionConfig(conversation.framework, conversation.id, { is_favorite: next });
+    conversation.isFavorite = next;
+    window.dispatchEvent(new Event("sessions:changed"));
+  } catch (err) {
+    console.error("[conversation] toggle favorite failed", err);
+  }
+}
+
 function createKebab(conversation: Conversation): HTMLElement {
   const btn = el("button", {
     class: "conversation-kebab lm-icon-btn",
@@ -130,6 +148,10 @@ function createKebab(conversation: Conversation): HTMLElement {
   });
   btn.innerHTML = KEBAB_SVG;
 
+  const starItem = el("div", {
+    class: "item",
+    text: conversation.isFavorite ? "Unstar" : "Star",
+  });
   // Launch resumes the session via the `claude` CLI, so it's only meaningful for
   // Claude Code sessions; other frameworks omit it entirely.
   const canLaunch = conversation.framework === "claudecode";
@@ -137,6 +159,7 @@ function createKebab(conversation: Conversation): HTMLElement {
   const projectItem = el("div", { class: "item", text: "Open Project Folder" });
   const dataItem = el("div", { class: "item", text: "Open Transcript Folder" });
   const menu = el("div", { class: "lm-menu kebab-menu" }, [
+    starItem,
     ...(launchItem ? [launchItem] : []),
     projectItem,
     dataItem,
@@ -161,6 +184,10 @@ function createKebab(conversation: Conversation): HTMLElement {
     if (!isOpen) open();
   });
   menu.addEventListener("click", (e) => e.stopPropagation());
+  starItem.addEventListener("click", () => {
+    close();
+    void toggleFavorite(conversation);
+  });
   launchItem?.addEventListener("click", () => {
     close();
     void launchSession(conversation);
@@ -203,10 +230,14 @@ export function createConversationBlock(
     frameworkChip,
   ]);
 
+  const star = el("span", { class: "conversation-star", title: "Favorite" });
+  star.innerHTML = STAR_SVG;
+
   const title = el("div", { class: "conversation-title-row" }, [
     ...(conversation.isLive
       ? [el("span", { class: "live-dot", title: "Live" })]
       : []),
+    ...(conversation.isFavorite ? [star] : []),
     el("span", { class: "conversation-title", text: conversation.title }),
     createKebab(conversation),
   ]);

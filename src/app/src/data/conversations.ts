@@ -22,4 +22,7 @@ export interface Conversation {
   model: string; // canonical model id, e.g. "claude-opus-4-8" (used to launch the CLI)
   modelDisplay: string; // human-facing label, e.g. "opus-4-8" (shown in chips)
   effort: Effort;
+  isFavorite: boolean; // user-set star (see api.ts session config endpoints)
+  nickname: string; // user-set display name shown instead of the title, if non-empty
+  comments: string; // user-set free text; loaded on demand (not in the list payload)
 }

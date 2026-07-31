@@ -11,6 +11,7 @@ import type { Facets } from "../data/api.js";
 export interface Filters {
   frameworks: Set<string>;
   live: boolean;
+  favorites: boolean;
   projects: Set<string>; // full project paths
   models: Set<string>;
   date: Section | "all";
@@ -20,6 +21,7 @@ export function emptyFilters(): Filters {
   return {
     frameworks: new Set(),
     live: false,
+    favorites: false,
     projects: new Set(),
     models: new Set(),
     date: "all",
@@ -32,6 +34,7 @@ export function hasActiveFilters(f: Filters): boolean {
   return (
     f.frameworks.size > 0 ||
     f.live ||
+    f.favorites ||
     f.projects.size > 0 ||
     f.models.size > 0 ||
     f.date !== "all"
@@ -180,6 +183,18 @@ export function createFilterPanel(
     fire,
   );
 
+  const favorites = singlePills(
+    [
+      { value: "all", label: "All" },
+      { value: "favorites", label: "Favorites" },
+    ],
+    () => (filters.favorites ? "favorites" : "all"),
+    (v) => {
+      filters.favorites = v === "favorites";
+    },
+    fire,
+  );
+
   const date = singlePills(
     [{ value: "all", label: "All" }, ...SECTIONS.map((s) => ({ value: s, label: s }))],
     () => filters.date,
@@ -192,6 +207,7 @@ export function createFilterPanel(
   reset.addEventListener("click", () => {
     filters.frameworks.clear();
     filters.live = false;
+    filters.favorites = false;
     filters.projects.clear();
     filters.models.clear();
     filters.date = "all";
@@ -199,6 +215,7 @@ export function createFilterPanel(
     projects.sync();
     models.sync();
     live.sync();
+    favorites.sync();
     date.sync();
     fire();
   });
@@ -207,6 +224,7 @@ export function createFilterPanel(
 
   return el("div", { class: "filter-panel" }, [
     reset,
+    section("Favorites", favorites.node),
     section("Framework", frameworks.node),
     section("Model", models.node),
     section("Project", projects.node),

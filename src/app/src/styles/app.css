@@ -512,6 +512,14 @@ html, body {
     50%      { opacity: 0.6; box-shadow: 0 0 0 4px transparent; }
 }
 
+.conversation-star {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    margin-top: 2px;
+    color: var(--accent-color, #e0a83e);
+}
+
 .conversation-subtitle {
     margin-top: 3px;
     font-size: 0.69rem;

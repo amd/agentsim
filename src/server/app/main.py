@@ -21,8 +21,14 @@ import uvicorn
 
 from app.registry import FrameworkRegistry
 from app.server import create_app
+from app.session_config import SessionConfigStore
 
 DEFAULT_PORT = 4317
+
+
+def _config_base(config_dir: str | None) -> Path:
+    """The directory holding ``config.json`` and ``sessions_configs/``."""
+    return Path(config_dir) if config_dir else Path.home() / ".cache" / "AgentSim"
 
 
 def build_registry(config_dir: str | None = None) -> FrameworkRegistry:
@@ -33,12 +39,17 @@ def build_registry(config_dir: str | None = None) -> FrameworkRegistry:
     empty on first run; data sources are added by the user (manually or from
     auto-detection).
     """
-    base = Path(config_dir) if config_dir else Path.home() / ".cache" / "AgentSim"
-    state_path = base / "config.json"
+    state_path = _config_base(config_dir) / "config.json"
 
     registry = FrameworkRegistry(state_path)
     registry.load()
     return registry
+
+
+def build_store(config_dir: str | None = None) -> SessionConfigStore:
+    """Build the per-session user-metadata store (favorites/nicknames/comments),
+    rooted next to ``config.json``."""
+    return SessionConfigStore(_config_base(config_dir))
 
 
 def main() -> None:
@@ -50,7 +61,8 @@ def main() -> None:
     args = parser.parse_args()
 
     registry = build_registry(args.config_dir)
-    app = create_app(registry)
+    store = build_store(args.config_dir)
+    app = create_app(registry, store)
 
     print(f"[server] listening on http://localhost:{args.port}")
     print(f"[server] frameworks: {', '.join(sorted(registry.active)) or '(none)'}")
