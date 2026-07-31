@@ -4,7 +4,8 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import { el } from "./dom.js";
-import { updateSessionConfig } from "../data/api.js";
+import { fetchSessionConfig, updateSessionConfig } from "../data/api.js";
+import type { SessionUserConfigPatch } from "../data/api.js";
 import type { Conversation } from "../data/conversations.js";
 
 const dateFmt = new Intl.DateTimeFormat(undefined, {
@@ -140,33 +141,50 @@ async function toggleFavorite(conversation: Conversation): Promise<void> {
   }
 }
 
-// Small modal to set/clear a session's nickname. Reuses the shared overlay/modal
-// styles from Manage Data Sources. Saving an empty value clears the nickname.
-function editNickname(conversation: Conversation): void {
-  const input = el("input", {
-    class: "session-edit-input",
-    type: "text",
-    placeholder: conversation.title,
-  }) as HTMLInputElement;
-  input.value = conversation.nickname;
+// Which per-session text field the editor writes. Both are string columns on
+// SessionUserConfig and on Conversation, so the modal is field-agnostic.
+type EditableField = "nickname" | "comments";
+
+interface SessionEditOptions {
+  field: EditableField;
+  title: string;
+  // false → single-line <input> (nickname); true → multi-line <textarea>
+  // (comments). This is the only structural difference between the two editors.
+  multiline: boolean;
+  initialValue: string;
+  placeholder: string;
+  // Run after a successful save/clear (e.g. nickname re-renders the sidebar).
+  onSaved?: () => void;
+}
+
+// Shared modal to set/clear one per-session text field. Reuses the overlay/modal
+// styles from Manage Data Sources. Saving an empty value clears the field (the
+// server merges "" back toward default, deleting the file if all-default).
+function editSessionField(conversation: Conversation, opts: SessionEditOptions): void {
+  const editor = (
+    opts.multiline
+      ? el("textarea", { class: "session-edit-textarea", placeholder: opts.placeholder })
+      : el("input", { class: "session-edit-input", type: "text", placeholder: opts.placeholder })
+  ) as HTMLInputElement | HTMLTextAreaElement;
+  editor.value = opts.initialValue;
 
   const closeBtn = el("button", {
     class: "lm-icon-btn ds-close", "aria-label": "Close", text: "✕",
   });
   const cancel = el("button", { class: "lm-btn lm-btn-secondary", text: "Cancel" });
   const save = el("button", { class: "lm-btn lm-btn-primary", text: "Save" });
-  // Only offer delete when a nickname is actually set.
-  const del = conversation.nickname
+  // Only offer delete when a value is actually set.
+  const del = opts.initialValue
     ? el("button", { class: "lm-btn lm-btn-danger", text: "Delete" })
     : null;
 
   const modal = el("div", { class: "ds-picker session-edit" }, [
     el("div", { class: "ds-header" }, [
-      el("h3", { class: "ds-title", text: "Set nickname" }),
+      el("h3", { class: "ds-title", text: opts.title }),
       closeBtn,
     ]),
     el("div", { class: "ds-picker-body" }, [
-      input,
+      editor,
       el("div", { class: "session-edit-actions" }, [
         ...(del ? [del] : []),
         el("div", { class: "session-edit-actions-right" }, [cancel, save]),
@@ -181,16 +199,19 @@ function editNickname(conversation: Conversation): void {
   };
   const onKey = (e: KeyboardEvent) => {
     if (e.key === "Escape") close();
-    else if (e.key === "Enter") void commit();
+    // Enter commits single-line inputs; a textarea keeps Enter for newlines.
+    else if (e.key === "Enter" && !opts.multiline) void commit();
   };
   const commit = async (): Promise<void> => {
-    const nickname = input.value.trim();
+    const value = editor.value.trim();
+    const patch: SessionUserConfigPatch =
+      opts.field === "comments" ? { comments: value } : { nickname: value };
     try {
-      await updateSessionConfig(conversation.framework, conversation.id, { nickname });
-      conversation.nickname = nickname;
-      window.dispatchEvent(new Event("sessions:changed"));
+      await updateSessionConfig(conversation.framework, conversation.id, patch);
+      conversation[opts.field] = value;
+      opts.onSaved?.();
     } catch (err) {
-      console.error("[conversation] set nickname failed", err);
+      console.error(`[conversation] set ${opts.field} failed`, err);
     }
     close();
   };
@@ -199,7 +220,7 @@ function editNickname(conversation: Conversation): void {
   cancel.addEventListener("click", close);
   save.addEventListener("click", () => void commit());
   del?.addEventListener("click", () => {
-    input.value = "";
+    editor.value = "";
     void commit();
   });
   overlay.addEventListener("click", (e) => {
@@ -208,8 +229,38 @@ function editNickname(conversation: Conversation): void {
   document.addEventListener("keydown", onKey);
 
   document.body.append(overlay);
-  input.focus();
-  input.select();
+  editor.focus();
+  if (!opts.multiline) (editor as HTMLInputElement).select();
+}
+
+// Nickname is displayed in the sidebar, so a change must re-render the list.
+function editNickname(conversation: Conversation): void {
+  editSessionField(conversation, {
+    field: "nickname",
+    title: "Set nickname",
+    multiline: false,
+    initialValue: conversation.nickname,
+    placeholder: conversation.title,
+    onSaved: () => window.dispatchEvent(new Event("sessions:changed")),
+  });
+}
+
+// Comments aren't in the list payload, so fetch the current value before opening
+// the editor. They're not shown in the sidebar, so no sessions:changed on save.
+async function editComments(conversation: Conversation): Promise<void> {
+  try {
+    const cfg = await fetchSessionConfig(conversation.framework, conversation.id);
+    conversation.comments = cfg.comments;
+  } catch (err) {
+    console.error("[conversation] fetch comments failed", err);
+  }
+  editSessionField(conversation, {
+    field: "comments",
+    title: "Edit comments",
+    multiline: true,
+    initialValue: conversation.comments,
+    placeholder: "Add comments…",
+  });
 }
 
 function createKebab(conversation: Conversation): HTMLElement {
@@ -225,6 +276,7 @@ function createKebab(conversation: Conversation): HTMLElement {
     text: conversation.isFavorite ? "Unstar" : "Star",
   });
   const nicknameItem = el("div", { class: "item", text: "Set Nickname…" });
+  const commentsItem = el("div", { class: "item", text: "Edit Comments…" });
   // Launch resumes the session via the `claude` CLI, so it's only meaningful for
   // Claude Code sessions; other frameworks omit it entirely.
   const canLaunch = conversation.framework === "claudecode";
@@ -234,6 +286,7 @@ function createKebab(conversation: Conversation): HTMLElement {
   const menu = el("div", { class: "lm-menu kebab-menu" }, [
     starItem,
     nicknameItem,
+    commentsItem,
     ...(launchItem ? [launchItem] : []),
     projectItem,
     dataItem,
@@ -265,6 +318,10 @@ function createKebab(conversation: Conversation): HTMLElement {
   nicknameItem.addEventListener("click", () => {
     close();
     editNickname(conversation);
+  });
+  commentsItem.addEventListener("click", () => {
+    close();
+    void editComments(conversation);
   });
   launchItem?.addEventListener("click", () => {
     close();
