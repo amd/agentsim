@@ -130,10 +130,17 @@ function createKebab(conversation: Conversation): HTMLElement {
   });
   btn.innerHTML = KEBAB_SVG;
 
-  const launchItem = el("div", { class: "item", text: "Launch Session" });
+  // Launch resumes the session via the `claude` CLI, so it's only meaningful for
+  // Claude Code sessions; other frameworks omit it entirely.
+  const canLaunch = conversation.framework === "claudecode";
+  const launchItem = canLaunch ? el("div", { class: "item", text: "Launch Session" }) : null;
   const projectItem = el("div", { class: "item", text: "Open Project Folder" });
   const dataItem = el("div", { class: "item", text: "Open Transcript Folder" });
-  const menu = el("div", { class: "lm-menu kebab-menu" }, [launchItem, projectItem, dataItem]);
+  const menu = el("div", { class: "lm-menu kebab-menu" }, [
+    ...(launchItem ? [launchItem] : []),
+    projectItem,
+    dataItem,
+  ]);
   menu.style.display = "none";
 
   const close = () => {
@@ -154,7 +161,7 @@ function createKebab(conversation: Conversation): HTMLElement {
     if (!isOpen) open();
   });
   menu.addEventListener("click", (e) => e.stopPropagation());
-  launchItem.addEventListener("click", () => {
+  launchItem?.addEventListener("click", () => {
     close();
     void launchSession(conversation);
   });
