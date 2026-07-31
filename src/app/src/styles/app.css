@@ -815,8 +815,16 @@ html, body {
 
 .session-edit-actions {
     display: flex;
-    justify-content: flex-end;
+    align-items: center;
+    justify-content: space-between;
     gap: 8px;
+}
+
+/* Cancel/Save grouped to the right; Delete (when present) sits at the left. */
+.session-edit-actions-right {
+    display: flex;
+    gap: 8px;
+    margin-left: auto;
 }
 
 /* Compact button metrics for the edit modals, matching the data-source rows. */

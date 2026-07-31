@@ -155,6 +155,10 @@ function editNickname(conversation: Conversation): void {
   });
   const cancel = el("button", { class: "lm-btn lm-btn-secondary", text: "Cancel" });
   const save = el("button", { class: "lm-btn lm-btn-primary", text: "Save" });
+  // Only offer delete when a nickname is actually set.
+  const del = conversation.nickname
+    ? el("button", { class: "lm-btn lm-btn-danger", text: "Delete" })
+    : null;
 
   const modal = el("div", { class: "ds-picker session-edit" }, [
     el("div", { class: "ds-header" }, [
@@ -163,7 +167,10 @@ function editNickname(conversation: Conversation): void {
     ]),
     el("div", { class: "ds-picker-body" }, [
       input,
-      el("div", { class: "session-edit-actions" }, [cancel, save]),
+      el("div", { class: "session-edit-actions" }, [
+        ...(del ? [del] : []),
+        el("div", { class: "session-edit-actions-right" }, [cancel, save]),
+      ]),
     ]),
   ]);
   const overlay = el("div", { class: "ds-overlay" }, [modal]);
@@ -191,6 +198,10 @@ function editNickname(conversation: Conversation): void {
   closeBtn.addEventListener("click", close);
   cancel.addEventListener("click", close);
   save.addEventListener("click", () => void commit());
+  del?.addEventListener("click", () => {
+    input.value = "";
+    void commit();
+  });
   overlay.addEventListener("click", (e) => {
     if (e.target === overlay) close();
   });
