@@ -368,8 +368,14 @@ class Pi(AgenticFramework):
         return stem.split("_", 1)[1] if "_" in stem else stem
 
     def _discover(self) -> list[str]:
-        # One-subfolder-per-session layout, plus transcripts sitting directly in
-        # the folder (an exported/copied sessions folder).
+        # Canonical layout only: one subfolder per session. The "*" (watch) view
+        # serves exactly this known location, never loose files elsewhere.
+        return sorted(glob.glob(os.path.join(self.data_basepath, "*", "*.jsonl")))
+
+    def _snapshot_candidates(self) -> list[str]:
+        # An arbitrary imported folder may hold transcripts nested (a copied
+        # sessions home) or sitting directly inside (an export); scan both.
+        # is_session_file() then filters out non-session files.
         nested = glob.glob(os.path.join(self.data_basepath, "*", "*.jsonl"))
         direct = glob.glob(os.path.join(self.data_basepath, "*.jsonl"))
         return sorted(set(nested) | set(direct))
@@ -380,7 +386,11 @@ class Pi(AgenticFramework):
                 p for c in self._children
                 if os.path.exists(p := os.path.join(self.data_basepath, c))
             ]
-        return self._discover()
+        if self._children == "*":
+            return self._discover()  # canonical location, trusted layout
+        # children is None: a validate/manual probe -- scan broadly but keep only
+        # files that parse as real sessions.
+        return [p for p in self._snapshot_candidates() if self.is_session_file(p)]
 
     def _session_path(self, session_id: str) -> str:
         for path in self._session_paths():
@@ -395,17 +405,13 @@ class Pi(AgenticFramework):
 
         sessions: list[SessionMetadata] = []
         for path in self._session_paths():
-            basename = os.path.basename(path)
-            try:
-                session_id = basename.split("_", 1)[1].replace(".jsonl", "")
-            except IndexError:
-                continue
+            session_id = self._id_of(path)
             try:
                 records = _parse_session_file(path)
-            except (json.JSONDecodeError, OSError) as error:
-                print(f"[pi] failed to parse {path}: {error}")
+                sessions.append(_metadata_from_records(records, path, session_id))
+            except Exception as error:  # one unreadable file never drops the rest
+                print(f"[pi] failed to read {path}: {error}")
                 continue
-            sessions.append(_metadata_from_records(records, path, session_id))
         return sessions
 
     def get_session_trace(self, session_id: str) -> SessionTrace:

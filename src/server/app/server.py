@@ -137,7 +137,9 @@ def create_app(registry: FrameworkRegistry) -> FastAPI:
                 continue
             if registry.get(FrameworkRegistry._source_id(path)) is not None:
                 continue  # default location already added as a source
-            probe = cls(path)
+            # The default location is the canonical ("*") layout: count via that
+            # trusted view (fast, metadata-only) rather than a validating scan.
+            probe = cls(path, "*")
             probe.init()
             found.append(DataSource(
                 alias=cls.alias, name=cls.name, primary_color=cls.primary_color,

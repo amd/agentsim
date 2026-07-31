@@ -34,11 +34,14 @@ class AgenticFramework(ABC):
     supports_snapshot: bool = True
 
     # A source's membership is a "children" set threaded into the backend:
-    #   * ``None`` / ``"*"``  -- discover every parseable file under the parent
-    #                            on each request (auto-watch, canonical location).
-    #   * ``list[str]``       -- serve exactly these files (paths relative to the
-    #                            parent), a frozen snapshot that ignores new files.
-    # Snapshotting frameworks build the list once via ``discover_relative()``.
+    #   * ``"*"``       -- the framework's canonical location: serve every file in
+    #                      its known layout (auto-watch). We know exactly where the
+    #                      files live, so this never scans loose/unrelated files.
+    #   * ``list[str]`` -- serve exactly these files (paths relative to the parent),
+    #                      a frozen snapshot that ignores files added later.
+    #   * ``None``      -- a probe (validate / manual-folder import): broadly scan
+    #                      an arbitrary folder and keep only files that validate as
+    #                      real sessions. Snapshots are frozen from this set.
 
     @classmethod
     def detect(cls) -> str | None:
@@ -50,19 +53,60 @@ class AgenticFramework(ABC):
         return str(path) if path.exists() else None
 
     def _discover(self) -> list[str]:
-        """Absolute paths of every parseable session file under ``data_basepath``.
+        """Absolute paths of session files in the framework's *canonical* layout.
 
-        Snapshotting backends override this with their layout globs; the base
-        returns nothing so non-snapshotting frameworks (Hermes) never snapshot.
+        This is the ``"*"`` (watch) view: only the known location where the
+        framework writes transcripts, so loose files sitting elsewhere under the
+        home (e.g. Claude Code's ``history.jsonl``) are never swept in.
+        Snapshotting backends override this with their layout glob; the base
+        returns nothing so non-snapshotting frameworks (Hermes) never scan.
         """
         return []
 
-    def discover_relative(self) -> list[str]:
-        """The discovered session files as paths relative to ``data_basepath``.
+    def _snapshot_candidates(self) -> list[str]:
+        """Every *possible* session file under an arbitrary imported folder.
 
-        Used by the registry to freeze a folder's membership at import time.
+        Broader than :meth:`_discover`: the canonical layout PLUS files sitting
+        directly in the folder, since a manually imported folder may be a copied
+        home or a flat export. Each candidate is validated by the caller before
+        it counts, so this may include non-session files. Falls back to the
+        canonical layout for backends that don't distinguish the two.
         """
-        return [os.path.relpath(p, self.data_basepath) for p in self._discover()]
+        return self._discover()
+
+    def is_session_file(self, path: str) -> bool:
+        """Whether ``path`` parses into a real session (a non-empty trace).
+
+        Used to reject stray files (logs, command history, unrelated JSON) when
+        freezing an arbitrary folder's membership, so only genuine transcripts
+        are imported.
+        """
+        try:
+            _, trace = self.parse_file(path)
+        except Exception:
+            return False
+        return bool(trace.spans)
+
+    def discover_relative(self) -> list[str]:
+        """The importable session files as paths relative to ``data_basepath``.
+
+        Used by the registry to freeze a manual folder's membership at import
+        time. Only files that validate as real sessions are included.
+        """
+        return [
+            os.path.relpath(path, self.data_basepath)
+            for path in self._snapshot_candidates()
+            if self.is_session_file(path)
+        ]
+
+    def parse_file(self, path: str) -> tuple[SessionMetadata, SessionTrace]:
+        """Parse one session file into its metadata + full trace.
+
+        Snapshotting backends implement this; the base raises so a backend that
+        can't read a single file (e.g. a whole-database framework) fails loudly
+        if asked to snapshot.
+        """
+        raise NotImplementedError
 
     @abstractmethod
     def init(self) -> None:
