@@ -1,8 +1,11 @@
-# AgentSim — visualize your agentic-coding sessions on a timeline
+# AgentSim — see and understand your agents
 
 ![main_screen.png](doc/main_screen.png)
 
-AgentSim reads the transcripts your agentic coding tools leave behind and lays
+AgentSim is a ModelSim-inspired tool that helps to visualize, debug, and better understand AI agent behavior, providing deeper visual insights into how agents
+ execute tasks and make decisions.
+
+It reads the transcripts your agentic coding tools leave behind and lays
 each session out on a timeline of messages, thinking, and tool
 calls. See how a session actually unfolded — what the agent read, when it
 thought, which tools it fired, and how long each step took.
@@ -18,11 +21,32 @@ nothing to export or configure.
 | Hermes | `~/.hermes/state.db` (`%LOCALAPPDATA%\hermes\state.db` on Windows) | Supported |
 | Pi | `~/.pi/agent/sessions/<project>/<id>.jsonl` | Supported |
 
+### Adding data sources
+
+Add data one of three ways (examples shown for Claude Code):
+
+- **Single file** — one `.jsonl` transcript.
+  - `D:\mydata\6f3a…jsonl`
+- **Folder of transcripts** — a flat folder of `.jsonl` files.
+    ```
+    other_sessions/
+    └── session-a.jsonl
+        …
+    ```
+- **Canonical file layout** — a folder organized the way the framework stores it
+  (the nested subtree), at any location — not just the default one.
+  - `my/custom/path/.claude/`
+
+**Simply drag and drop your data in the app UI, or go to file → Manage Data Sources.**
+
 ## Getting started
 
 1. Download the latest Windows release from the **Releases** section in the
    sidebar on the right.
-2. Run the installer. 
+2. Run the installer.
+   - You will see **"Windows protected your PC"** — click **More info → Run anyway**.
+   - This appears because the app is not yet signed. It's open source, so feel
+     free to audit the code.
 3. Select the data sources you would like to view.
 
 > **Windows only** for now — other platforms will be supported soon.
