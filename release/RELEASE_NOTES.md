@@ -1,5 +1,8 @@
 ## AgentSim
 
+v0.1.6
+Fixed date parsing bugs, and improved UI.
+
 v0.1.5:
 Fixed UI, and import data bugs. 
 Added session nickname, comments and star features.
