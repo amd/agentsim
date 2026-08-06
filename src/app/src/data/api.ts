@@ -13,6 +13,73 @@ import type { Span } from "../timeline/index.js";
 
 const BASE = "http://localhost:4317";
 
+// A single error shape for every request so the UI can tell a *transport*
+// failure (server unreachable / timed out — no response at all) apart from a
+// *data* failure (server answered with a 4xx/5xx). Carries the endpoint, the
+// HTTP status (null for transport failures) and the parsed server `detail`, so a
+// notification can say exactly what failed instead of a bare "Cannot reach
+// server."
+export class ApiError extends Error {
+  constructor(
+    readonly method: string,
+    readonly endpoint: string,
+    readonly status: number | null,
+    readonly detail: string,
+  ) {
+    super(detail || `${method} ${endpoint} failed`);
+    this.name = "ApiError";
+  }
+
+  // No HTTP response ever arrived (connection refused, timeout, DNS, etc.).
+  get isTransport(): boolean {
+    return this.status === null;
+  }
+}
+
+// Fail a stalled request instead of hanging forever, so a wedged server is a
+// definite, reportable outcome (a transport ApiError) the notification surface
+// can show rather than a spinner that never resolves.
+const REQUEST_TIMEOUT_MS = 15000;
+
+// Concurrent identical GETs share one in-flight promise, keyed by path. A single
+// change fans out into overlapping duplicate scans (sidebar + modal both hit
+// /sources, etc.); collapsing them to one request spares the single Python child
+// a burst of redundant full re-parses.
+const inFlight = new Map<string, Promise<unknown>>();
+
+// GET a JSON endpoint, normalizing both failure modes into ApiError. A rejected
+// or timed-out fetch (server down / unreachable) becomes a transport error
+// (status null); a non-2xx response becomes a data error carrying the server's
+// `detail`.
+function apiGet<T>(path: string): Promise<T> {
+  const existing = inFlight.get(path);
+  if (existing) return existing as Promise<T>;
+
+  const request = (async () => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    let res: Response;
+    try {
+      res = await fetch(`${BASE}${path}`, { signal: controller.signal });
+    } catch (error) {
+      const detail = controller.signal.aborted
+        ? `timed out after ${REQUEST_TIMEOUT_MS / 1000}s`
+        : error instanceof Error ? error.message : String(error);
+      throw new ApiError("GET", path, null, detail);
+    } finally {
+      clearTimeout(timer);
+    }
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      throw new ApiError("GET", path, res.status, body?.detail || `HTTP ${res.status}`);
+    }
+    return (await res.json()) as T;
+  })();
+
+  inFlight.set(path, request);
+  return request.finally(() => inFlight.delete(path)) as Promise<T>;
+}
+
 // Poll the server until it answers, or until `timeoutMs` elapses. The bundled
 // Python cold-starts slowly on first launch (Defender scan + .pyc compilation),
 // so the renderer must wait for the backend instead of firing requests that
@@ -186,19 +253,15 @@ function queryFor(filters: Filters): string {
 }
 
 export async function fetchSessions(filters: Filters): Promise<Conversation[]> {
-  const [res, meta] = await Promise.all([
-    fetch(`${BASE}/sessions${queryFor(filters)}`),
+  const [rows, meta] = await Promise.all([
+    apiGet<WireSession[]>(`/sessions${queryFor(filters)}`),
     frameworkMetaMap(),
   ]);
-  if (!res.ok) throw new Error(`GET /sessions failed: ${res.status}`);
-  const rows = (await res.json()) as WireSession[];
   return rows.map((row) => toConversation(row, meta));
 }
 
 export async function fetchFacets(): Promise<Facets> {
-  const res = await fetch(`${BASE}/sessions/facets`);
-  if (!res.ok) throw new Error(`GET /sessions/facets failed: ${res.status}`);
-  return (await res.json()) as Facets;
+  return apiGet<Facets>("/sessions/facets");
 }
 
 // Wire shape of SessionTrace. `spans` matches the widget's Span contract field
@@ -210,10 +273,8 @@ interface WireTrace {
 
 // The full ordered span trace for one session, used to render the timeline.
 export async function fetchTrace(sourceId: string, sessionId: string): Promise<Span[]> {
-  const url = `${BASE}/sources/${encodeURIComponent(sourceId)}/sessions/${encodeURIComponent(sessionId)}`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`GET ${url} failed: ${res.status}`);
-  const trace = (await res.json()) as WireTrace;
+  const path = `/sources/${encodeURIComponent(sourceId)}/sessions/${encodeURIComponent(sessionId)}`;
+  const trace = await apiGet<WireTrace>(path);
   return trace.spans;
 }
 
@@ -223,21 +284,15 @@ export async function fetchTrace(sourceId: string, sessionId: string): Promise<S
 // (framework, path) pair where path is a folder OR a single trace file.
 
 export async function fetchSources(): Promise<DataSource[]> {
-  const res = await fetch(`${BASE}/sources`);
-  if (!res.ok) throw new Error(`GET /sources failed: ${res.status}`);
-  return (await res.json()) as DataSource[];
+  return apiGet<DataSource[]>("/sources");
 }
 
 export async function fetchAvailableFrameworks(): Promise<DataSource[]> {
-  const res = await fetch(`${BASE}/frameworks/available`);
-  if (!res.ok) throw new Error(`GET /frameworks/available failed: ${res.status}`);
-  return (await res.json()) as DataSource[];
+  return apiGet<DataSource[]>("/frameworks/available");
 }
 
 export async function fetchDetectedFrameworks(): Promise<DataSource[]> {
-  const res = await fetch(`${BASE}/frameworks/detected`);
-  if (!res.ok) throw new Error(`GET /frameworks/detected failed: ${res.status}`);
-  return (await res.json()) as DataSource[];
+  return apiGet<DataSource[]>("/frameworks/detected");
 }
 
 export interface SourceValidation {
@@ -328,4 +383,30 @@ export async function updateSessionConfig(
   });
   if (!res.ok) throw new Error(`PATCH session config failed: ${res.status}`);
   return (await res.json()) as SessionUserConfig;
+}
+
+// --- Data-source diagnostics -----------------------------------------------
+// Failures collected server-side off the request path: a whole source that
+// can't be read (`error`) or a file parsed with some records dropped
+// (`warning`). The client polls this after a load so a session that rendered
+// *with* skipped records still tells the user what was lost.
+
+export interface Diagnostic {
+  level: "warning" | "error";
+  key: string;
+  message: string;
+  framework: string;
+  source_id: string;
+  path: string;
+  count: number;
+  timestamp: number;
+}
+
+export async function fetchDiagnostics(): Promise<Diagnostic[]> {
+  return apiGet<Diagnostic[]>("/diagnostics");
+}
+
+export async function clearDiagnostics(): Promise<void> {
+  const res = await fetch(`${BASE}/diagnostics`, { method: "DELETE" });
+  if (!res.ok) throw new Error(`DELETE /diagnostics failed: ${res.status}`);
 }

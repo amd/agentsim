@@ -13,6 +13,7 @@ import {
   validateSource,
   type DataSource,
 } from "../data/api.js";
+import { notifyFailure, notifySuccess } from "./Notifications.js";
 
 // Tell the rest of the app the active set changed so dependent views (e.g. the
 // sidebar's session list) re-fetch instead of showing stale data.
@@ -206,9 +207,10 @@ function openFrameworkPicker(paths: string[]): Promise<void> {
           options.append(btn);
         }
       })
-      .catch(() => {
+      .catch((error) => {
         message.classList.add("error");
         message.textContent = "Cannot reach server.";
+        notifyFailure(error, "GET /frameworks/available");
       });
   });
 }
@@ -312,9 +314,11 @@ export function openDataSourcesModal(): void {
           ...addControls,
         ]),
       );
-    } catch {
+      notifySuccess("GET /sources");
+    } catch (error) {
       clear(mainBody);
       mainBody.append(el("div", { class: "ds-status", text: "Cannot reach server." }));
+      notifyFailure(error, "GET /sources");
     }
   };
 

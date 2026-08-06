@@ -8,6 +8,7 @@ import { type Conversation } from "../data/conversations.js";
 import { SECTIONS, sectionFor, startOfToday, type Section } from "../data/sections.js";
 import { createFilterPanel, emptyFilters, hasActiveFilters, type Filters } from "./FilterPanel.js";
 import { fetchFacets, fetchSessions } from "../data/api.js";
+import { notifyFailure, notifySuccess } from "./Notifications.js";
 
 // Feather-style 24x24 stroke icons. Set via innerHTML because el() builds HTML
 // nodes, not the SVG namespace.
@@ -17,6 +18,17 @@ const SEARCH_SVG =
   '<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>';
 const RELOAD_SVG =
   '<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>';
+
+// Collapse a burst of events into one trailing call. A single data-source change
+// can fire several `frameworks:changed`/`sessions:changed` events in quick
+// succession; without this each one triggers its own full re-fetch + re-render.
+function debounce(fn: () => void, ms: number): () => void {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  return () => {
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(fn, ms);
+  };
+}
 
 function iconButton(svg: string, label: string): HTMLButtonElement {
   const btn = el("button", { class: "lm-icon-btn", "aria-label": label, title: label });
@@ -75,18 +87,24 @@ export function createSidebar(): HTMLElement {
     clear(list);
     list.append(el("div", { class: "conversation-empty", text: "Loading…" }));
 
+    let sessions: Conversation[];
     try {
-      const sessions = await fetchSessions(filters);
+      sessions = await fetchSessions(filters);
       if (seq !== requestSeq) return; // a newer request superseded this one
-      clear(list);
-      renderGroups(list, sessions);
-    } catch {
+      notifySuccess("GET /sessions");
+    } catch (error) {
       if (seq !== requestSeq) return;
       clear(list);
       list.append(
-        el("div", { class: "conversation-empty", text: "Cannot reach server." }),
+        el("div", { class: "conversation-empty", text: "Couldn't load conversations." }),
       );
+      notifyFailure(error, "GET /sessions");
+      return;
     }
+    // Rendering is outside the fetch try on purpose: a render-time throw here is a
+    // client bug, not a "/sessions" failure, and must not be mislabeled as one.
+    clear(list);
+    renderGroups(list, sessions);
   };
 
   // Filter popover: the 4-section filter panel, revealed from the filter icon.
@@ -100,10 +118,14 @@ export function createSidebar(): HTMLElement {
   const buildFilterPanel = (): void => {
     clear(popover);
     void fetchFacets()
-      .then((facets) => popover.append(createFilterPanel(facets, (f) => void renderList(f))))
-      .catch(() =>
-        popover.append(el("div", { class: "conversation-empty", text: "Cannot reach server." })),
-      );
+      .then((facets) => {
+        popover.append(createFilterPanel(facets, (f) => void renderList(f)));
+        notifySuccess("GET /sessions/facets");
+      })
+      .catch((error) => {
+        popover.append(el("div", { class: "conversation-empty", text: "Couldn't load filters." }));
+        notifyFailure(error, "GET /sessions/facets");
+      });
   };
   buildFilterPanel();
 
@@ -147,14 +169,14 @@ export function createSidebar(): HTMLElement {
   // facets (a removed source's options must disappear, a new one's must appear)
   // and re-render the list. The rebuilt panel starts unfiltered, so reset to
   // empty filters to keep the panel and the list in sync.
-  window.addEventListener("frameworks:changed", () => {
+  window.addEventListener("frameworks:changed", debounce(() => {
     buildFilterPanel();
     void renderList(emptyFilters());
-  });
+  }, 150));
 
   // A per-session change (star/nickname) doesn't touch the facets or filters, so
   // just re-fetch the list with the filters already applied.
-  window.addEventListener("sessions:changed", () => void renderList(currentFilters));
+  window.addEventListener("sessions:changed", debounce(() => void renderList(currentFilters), 150));
 
   void renderList(emptyFilters());
 

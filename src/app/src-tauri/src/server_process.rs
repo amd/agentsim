@@ -8,7 +8,16 @@ use std::io::Write;
 use std::os::windows::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
-use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
+use std::thread;
+use std::time::Duration;
+
+// How often the supervisor checks whether the child is still alive, and the
+// backoff bounds for restarting a child that died while the app is running.
+const SUPERVISOR_POLL: Duration = Duration::from_millis(500);
+const RESTART_BACKOFF_MIN: Duration = Duration::from_millis(500);
+const RESTART_BACKOFF_MAX: Duration = Duration::from_secs(30);
 
 // Windows process creation flag: run the child without allocating a console
 // window. Without it, a GUI-subsystem parent spawning console python.exe flashes
@@ -25,12 +34,21 @@ const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 // what language the server is written in. Swapping the server only changes what
 // we spawn here; nothing else in the app changes.
 pub struct ServerProcess {
-    child: Mutex<Option<Child>>,
+    child: Arc<Mutex<Option<Child>>>,
+    // True while we *want* the server up. Set on start, cleared on stop; the
+    // supervisor restarts the child only while this is true, so a deliberate
+    // stop (app exit) is never mistaken for a crash and re-spawned.
+    running: Arc<AtomicBool>,
+    // Guards against spawning more than one supervisor thread if start() is
+    // somehow called twice.
+    supervising: AtomicBool,
 }
 
 // Where the interpreter and `app.main` package live. In dev we run from the repo
 // (venv + src/server); in a bundled install we run the embeddable Python and the
-// server source that the MSI ships under the app's resource dir.
+// server source that the MSI ships under the app's resource dir. Cloned into the
+// supervisor thread so it can re-spawn the child after a crash.
+#[derive(Clone)]
 pub struct ServerPaths {
     pub python: PathBuf,
     pub server_dir: PathBuf,
@@ -39,14 +57,17 @@ pub struct ServerPaths {
 impl ServerProcess {
     pub fn new() -> Self {
         Self {
-            child: Mutex::new(None),
+            child: Arc::new(Mutex::new(None)),
+            running: Arc::new(AtomicBool::new(false)),
+            supervising: AtomicBool::new(false),
         }
     }
 
-    // Start the FastAPI server: `python -m app.main --port 4317`, run from the
-    // server dir with the given interpreter. The caller resolves dev-vs-bundled
-    // paths (see `resolve_paths`).
-    pub fn start(&self, paths: &ServerPaths) {
+    // Spawn the FastAPI server: `python -m app.main --port 4317`, run from the
+    // server dir with the given interpreter. Returns the handle, or None if the
+    // spawn failed (the frontend already shows a friendly "cannot reach server"
+    // message, so a failed spawn must not crash the host).
+    fn spawn_child(paths: &ServerPaths) -> Option<Child> {
         let python = &paths.python;
         let server_dir = &paths.server_dir;
 
@@ -80,24 +101,91 @@ impl ServerProcess {
             .stderr(stderr);
         #[cfg(windows)]
         cmd.creation_flags(CREATE_NO_WINDOW);
-        let result = cmd.spawn();
 
-        match result {
+        match cmd.spawn() {
             Ok(child) => {
                 log(&format!("spawned python server (pid={})", child.id()));
-                *self.child.lock().unwrap() = Some(child);
+                Some(child)
             }
             Err(err) => {
-                // Don't crash the UI if the server fails to start; the frontend
-                // already shows a friendly "cannot reach server" message.
                 log(&format!("failed to spawn python server: {err}"));
                 eprintln!("[host] failed to start python server: {err}");
+                None
             }
         }
     }
 
-    // Kill the child process so we don't leave an orphaned server running.
+    // Start the server and begin supervising it. The caller resolves
+    // dev-vs-bundled paths (see `resolve_paths`).
+    pub fn start(&self, paths: &ServerPaths) {
+        self.running.store(true, Ordering::SeqCst);
+        *self.child.lock().unwrap() = Self::spawn_child(paths);
+        self.ensure_supervised(paths);
+    }
+
+    // Launch the monitor thread (once). It polls the child; if it exits while the
+    // app still wants it running, it re-spawns with capped exponential backoff so
+    // a wedged/crashed Python child recovers instead of leaving the UI stranded
+    // on "Cannot reach server." for the rest of the session.
+    fn ensure_supervised(&self, paths: &ServerPaths) {
+        if self.supervising.swap(true, Ordering::SeqCst) {
+            return; // a supervisor is already running
+        }
+        let child = self.child.clone();
+        let running = self.running.clone();
+        let paths = paths.clone();
+        thread::spawn(move || {
+            let mut backoff = RESTART_BACKOFF_MIN;
+            while running.load(Ordering::SeqCst) {
+                thread::sleep(SUPERVISOR_POLL);
+                if !running.load(Ordering::SeqCst) {
+                    break;
+                }
+                let exited = {
+                    let mut guard = child.lock().unwrap();
+                    match guard.as_mut() {
+                        // Err (can't query) is treated as dead so we recover.
+                        Some(c) => matches!(c.try_wait(), Ok(Some(_)) | Err(_)),
+                        None => false, // spawn failed earlier; retry below
+                    }
+                };
+                let needs_spawn = exited || child.lock().unwrap().is_none();
+                if !needs_spawn {
+                    backoff = RESTART_BACKOFF_MIN; // healthy: reset backoff
+                    continue;
+                }
+                log(&format!(
+                    "python server not running; restarting in {:?}",
+                    backoff
+                ));
+                thread::sleep(backoff);
+                if !running.load(Ordering::SeqCst) {
+                    break;
+                }
+                if let Some(new_child) = Self::spawn_child(&paths) {
+                    *child.lock().unwrap() = Some(new_child);
+                    log("restarted python server");
+                }
+                backoff = (backoff * 2).min(RESTART_BACKOFF_MAX);
+            }
+            log("supervisor thread exiting");
+        });
+    }
+
+    // Whether the child is currently alive. Cheap, non-blocking probe.
+    pub fn is_running(&self) -> bool {
+        let mut guard = self.child.lock().unwrap();
+        match guard.as_mut() {
+            Some(c) => matches!(c.try_wait(), Ok(None)),
+            None => false,
+        }
+    }
+
+    // Kill the child process so we don't leave an orphaned server running. Clears
+    // `running` first so the supervisor sees the shutdown as intentional and does
+    // not race to restart it.
     pub fn stop(&self) {
+        self.running.store(false, Ordering::SeqCst);
         if let Some(mut child) = self.child.lock().unwrap().take() {
             println!("[host] stopping python server");
             let _ = child.kill();

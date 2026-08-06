@@ -7,6 +7,7 @@ import { el } from "./dom.js";
 import { createMenuBar } from "./MenuBar.js";
 import { createSidebar } from "./Sidebar.js";
 import { createCanvas } from "./Canvas.js";
+import { createNotifications } from "./Notifications.js";
 import { openDataSourcesModal, handleDroppedPaths } from "./DataSourcesModal.js";
 import { menus } from "../data/menus.js";
 
@@ -14,12 +15,16 @@ import { menus } from "../data/menus.js";
 // AppShell owns the toggleable panels and shows/hides them in response to the
 // View-menu toggle events (lemonade-style lifted visibility state).
 export function createAppShell(): HTMLElement {
+  // Mount the notification surface before the sidebar so its first load's
+  // failures/warnings have somewhere to land.
+  const notifications = createNotifications();
   const sidebar = createSidebar();
   const canvas = createCanvas();
 
   const shell = el("div", { class: "app-shell" }, [
     createMenuBar(menus),
     el("div", { class: "app-body" }, [sidebar, canvas]),
+    notifications,
   ]);
 
   const setVisible = (target: HTMLElement | null, visible: boolean) => {
