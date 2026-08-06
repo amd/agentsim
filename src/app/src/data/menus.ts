@@ -118,7 +118,7 @@ export const menus: Menu[] = [
     options: [
       wip({ label: "Documentation", onSelect: placeholder("Help > Documentation") }),
       wip({ label: "Keyboard Shortcuts", onSelect: placeholder("Help > Keyboard Shortcuts") }),
-      wip({ label: "About", onSelect: placeholder("Help > About") }),
+      { label: "About", onSelect: () => window.dispatchEvent(new CustomEvent("help:about")) },
     ],
   },
 ];

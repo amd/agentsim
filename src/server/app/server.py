@@ -17,11 +17,13 @@ and the CLI both speak it, so either can be swapped without the server changing.
 """
 
 import os
+import time
 from datetime import datetime
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
+from app import diagnostics
 from app.backends.AgenticFramework import AgenticFramework
 from app.models import (
     AddSourceRequest,
@@ -87,6 +89,10 @@ def create_app(
             return backend.get_sessions_list()
         except Exception as error:  # missing/renamed path, parse failure, etc.
             print(f"[server] source read failed for {backend.data_basepath}: {error}")
+            diagnostics.record(
+                "error", backend.data_basepath, str(error),
+                framework=backend.alias, path=backend.data_basepath,
+            )
             return []
 
     def _prepare(
@@ -110,13 +116,31 @@ def create_app(
             item.nickname = user.nickname
         return items
 
+    # A change to a data source (add/remove) alters the active-set signature and
+    # so misses the memo naturally; a user-config change (favorite/nickname) does
+    # not, so patch_session_config clears this explicitly.
+    sessions_memo: dict[str, tuple[float, list[SessionMetadata]]] = {}
+    SESSIONS_MEMO_TTL_S = 1.0
+
     def _all_sessions() -> list[SessionMetadata]:
         """Union every active source's sessions, stamping each with its source
-        id and framework format alias."""
+        id and framework format alias.
+
+        Memoized for a fraction of a second, keyed on the active-set signature,
+        so the client's ``/sessions`` + ``/sessions/facets`` burst (fired
+        together on every change) collapses into a single scan instead of two."""
+        signature = ",".join(sorted(registry.active))
+        now = time.monotonic()
+        cached = sessions_memo.get(signature)
+        if cached is not None and (now - cached[0]) <= SESSIONS_MEMO_TTL_S:
+            return cached[1]
+
         merged: list[SessionMetadata] = []
         for source_id, backend in registry.active.items():
             merged.extend(_prepare(_safe_sessions(backend), source_id, backend))
         merged.sort(key=lambda s: s.timestamp_modified, reverse=True)
+        sessions_memo.clear()  # only the current signature is worth keeping
+        sessions_memo[signature] = (now, merged)
         return merged
 
     @app.get("/health")
@@ -337,6 +361,19 @@ def create_app(
     ) -> SessionUserConfig:
         if framework not in AVAILABLE:
             raise HTTPException(status_code=422, detail=f"unknown framework: {framework}")
-        return store.update(framework, session_id, body)
+        result = store.update(framework, session_id, body)
+        sessions_memo.clear()  # favorite/nickname overlay changed; don't serve stale
+        return result
+
+    # Data-source failures collected off the request path (unreadable sources,
+    # per-file parse warnings). The client polls this to render a persistent,
+    # specific notification instead of an opaque "Cannot reach server."
+    @app.get("/diagnostics")
+    def get_diagnostics() -> list[dict]:
+        return diagnostics.snapshot()
+
+    @app.delete("/diagnostics", status_code=204)
+    def clear_diagnostics() -> None:
+        diagnostics.clear()
 
     return app

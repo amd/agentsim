@@ -153,6 +153,15 @@
 .tlw .vis-foreground .vis-group { border-color: var(--border-primary); }
 .tlw .vis-labelset .vis-label { color: var(--text-primary); }
 
+/* Right-align the left label column (section headers + row titles) so the text
+   sits flush against the timeline it captions. vis's .vis-inner is inline-block
+   by default, so it must fill the width for text-align to take effect. */
+.tlw .vis-labelset .vis-label .vis-inner {
+  display: block;
+  width: 100%;
+  text-align: right;
+}
+
 .tlw .vis-foreground .vis-group { background: var(--bg-tertiary); }
 
 /* clip items (bar fill is a data-driven accent color set inline) */

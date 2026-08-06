@@ -22,10 +22,11 @@ import glob
 import json
 import os
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from app.backends.AgenticFramework import AgenticFramework
+from app import diagnostics
+from app.backends.AgenticFramework import AgenticFramework, cached_metadata
 from app.models import SessionMetadata, SessionTrace, Span, SpanType
 
 # A session whose transcript file was modified within this many seconds is
@@ -43,27 +44,42 @@ _BLOCK_TYPE_TO_SPAN: dict[str, SpanType] = {
 }
 
 
-def _parse_session_file(session_path: str) -> list[dict]:
-    """Parse a transcript into a list of records.
+def _parse_session_file(session_path: str) -> tuple[list[dict], int]:
+    """Parse a transcript into ``(records, skipped_count)``.
 
     Tolerates both JSON-lines and whitespace-separated concatenated JSON by
-    decoding objects one at a time off the raw text.
+    decoding objects one at a time off the raw text. A malformed or truncated
+    record -- e.g. the unfinished trailing line of a live transcript Claude Code
+    is still writing, or a single corrupt line -- is skipped rather than aborting
+    the whole file: on a decode error we advance to the next line boundary and
+    keep the records we could read. ``skipped_count`` reports how many records
+    were dropped so callers can surface it.
     """
     decoder = json.JSONDecoder()
     with open(session_path, "r", encoding="utf-8") as handle:
         content = handle.read()
 
     objects: list[dict] = []
+    skipped = 0
     idx, length = 0, len(content)
     while idx < length:
         while idx < length and content[idx].isspace():
             idx += 1
         if idx >= length:
             break
-        obj, end = decoder.raw_decode(content, idx)
-        objects.append(obj)
+        try:
+            obj, end = decoder.raw_decode(content, idx)
+        except json.JSONDecodeError:
+            skipped += 1
+            nl = content.find("\n", idx)
+            if nl == -1:
+                break  # truncated trailing record: nothing more to recover
+            idx = nl + 1
+            continue
+        if isinstance(obj, dict):
+            objects.append(obj)
         idx = end
-    return objects
+    return objects, skipped
 
 
 def _parse_ts(timestamp: str) -> datetime:
@@ -76,6 +92,22 @@ def _shift_timestamp(timestamp: str, seconds: float) -> str:
 
 def _offset_ms(timestamp: str, origin: datetime) -> int:
     return int((_parse_ts(timestamp) - origin).total_seconds() * 1000)
+
+
+def _file_mtime_iso(path: str) -> str:
+    """The file's mtime as an ISO-8601 UTC string, or "" if it can't be read.
+
+    Used as a last-resort session timestamp: a partial transcript (all records
+    skipped, or none carrying a timestamp) has no in-band time, and an empty
+    timestamp breaks date display/sorting downstream."""
+    try:
+        return (
+            datetime.fromtimestamp(os.path.getmtime(path), tz=timezone.utc)
+            .isoformat()
+            .replace("+00:00", "Z")
+        )
+    except OSError:
+        return ""
 
 
 def _is_live(session_path: str) -> bool:
@@ -94,16 +126,23 @@ def _content_to_str(content: object) -> str:
     return json.dumps(content, ensure_ascii=False, default=str)
 
 
+def _message_of(record: dict) -> dict:
+    """The record's ``message`` object, or ``{}`` when it's absent or malformed
+    (some records carry a string/list here); keeps ``.get`` chains from raising."""
+    message = record.get("message")
+    return message if isinstance(message, dict) else {}
+
+
 def _build_timeline(records: list[dict]) -> list[dict]:
     """Reconstruct the ordered list of timeline blocks from raw records."""
     # index tool results by tool_use_id so each tool call can find its output + end time
     tool_results: dict[str, dict] = {}
     for record in records:
-        message = record.get("message") or {}
+        message = _message_of(record)
         content = message.get("content")
         if record.get("type") == "user" and isinstance(content, list):
             for block in content:
-                if block.get("type") == "tool_result":
+                if isinstance(block, dict) and block.get("type") == "tool_result":
                     tool_results[block.get("tool_use_id")] = {
                         "timestamp": record.get("timestamp"),
                         "content": block.get("content"),
@@ -130,7 +169,7 @@ def _build_timeline(records: list[dict]) -> list[dict]:
         timestamp = record.get("timestamp")
         uuid = record.get("uuid")
         parent = record.get("parentUuid")
-        message = record.get("message") or {}
+        message = _message_of(record)
         content = message.get("content")
 
         if rtype == "user" and isinstance(content, str):
@@ -150,6 +189,8 @@ def _build_timeline(records: list[dict]) -> list[dict]:
         elif rtype == "assistant" and isinstance(content, list):
             last_end = None
             for block in content:
+                if not isinstance(block, dict):
+                    continue
                 btype = block.get("type")
                 if btype == "thinking":
                     blk = {"start_time": start_for(parent, timestamp), "end_time": timestamp,
@@ -172,7 +213,9 @@ def _build_timeline(records: list[dict]) -> list[dict]:
                 end_by_uuid[uuid] = last_end
 
         elif rtype == "attachment" and timestamp:
-            attachment = record.get("attachment") or {}
+            attachment = record.get("attachment")
+            if not isinstance(attachment, dict):
+                attachment = {}
             timeline.append({
                 "start_time": timestamp,
                 "end_time": timestamp,
@@ -201,7 +244,7 @@ def _metadata_from_records(records: list[dict], path: str, session_id: str) -> S
             if created is None:
                 created = record.get("timestamp")
             if first_user_message is None:
-                content = (record.get("message") or {}).get("content")
+                content = _message_of(record).get("content")
                 if isinstance(content, str) and content.strip():
                     first_user_message = content.strip()
         elif rtype == "assistant" and record.get("timestamp"):
@@ -210,9 +253,17 @@ def _metadata_from_records(records: list[dict], path: str, session_id: str) -> S
         # and the latest model seen.
         if not project_path and record.get("cwd"):
             project_path = record.get("cwd")
-        record_model = (record.get("message") or {}).get("model")
+        record_model = _message_of(record).get("model")
         if record_model:
             model = record_model
+
+    # A partial session (e.g. a just-started live transcript that only holds
+    # header records like "mode"/"permission-mode", or one with a user turn but
+    # no assistant reply yet) has no conversation timestamp. Fall back to the
+    # earliest/latest timestamp on *any* record, then to the file mtime, so the
+    # date is never empty (an empty date breaks display/sorting downstream).
+    record_times = sorted(r.get("timestamp") for r in records if r.get("timestamp"))
+    fallback = record_times[0] if record_times else _file_mtime_iso(path)
 
     return SessionMetadata(
         session_id=session_id,
@@ -223,8 +274,8 @@ def _metadata_from_records(records: list[dict], path: str, session_id: str) -> S
         project_slug=os.path.basename(os.path.dirname(path)),
         model=model,
         effort_level="",  # not present in Claude Code transcripts
-        timestamp_created=created or "",
-        timestamp_modified=modified or "",
+        timestamp_created=created or fallback,
+        timestamp_modified=modified or (record_times[-1] if record_times else fallback),
     )
 
 
@@ -320,17 +371,33 @@ class ClaudeCode(AgenticFramework):
 
     def get_sessions_list(self) -> list[SessionMetadata]:
         if os.path.isfile(self.data_basepath):
-            meta, trace = self.parse_file(self.data_basepath)
+            try:
+                meta, trace = self.parse_file(self.data_basepath)
+            except Exception as error:  # a bad single-file source yields nothing
+                print(f"[claudecode] failed to read {self.data_basepath}: {error}")
+                diagnostics.record(
+                    "error", self.data_basepath, str(error),
+                    framework=self.alias, path=self.data_basepath,
+                )
+                return []
             return [meta] if trace.spans else []
 
         sessions: list[SessionMetadata] = []
         for path in self._session_paths():
             session_id = os.path.basename(path).split(".")[0]
             try:
-                records = _parse_session_file(path)
-                sessions.append(_metadata_from_records(records, path, session_id))
+                def build() -> SessionMetadata:
+                    records, skipped = _parse_session_file(path)
+                    self._note_parse(path, skipped)
+                    return _metadata_from_records(records, path, session_id)
+                meta = cached_metadata(path, build)
+                meta.is_live = _is_live(path)  # recency, not content: never cached
+                sessions.append(meta)
             except Exception as error:  # one unreadable file never drops the rest
                 print(f"[claudecode] failed to read {path}: {error}")
+                diagnostics.record(
+                    "error", path, str(error), framework=self.alias, path=path,
+                )
                 continue
         return sessions
 
@@ -341,13 +408,28 @@ class ClaudeCode(AgenticFramework):
                 raise FileNotFoundError(f"unknown session: {session_id}")
             return trace
 
-        records = _parse_session_file(self._session_path(session_id))
+        path = self._session_path(session_id)  # raises FileNotFoundError if absent
+        records, skipped = _parse_session_file(path)
+        self._note_parse(path, skipped)
         return _trace_from_records(records, session_id)
 
     def parse_file(self, path: str) -> tuple[SessionMetadata, SessionTrace]:
-        records = _parse_session_file(path)
+        records, skipped = _parse_session_file(path)
+        self._note_parse(path, skipped)
         session_id = os.path.basename(path).split(".")[0]
         meta = _metadata_from_records(records, path, session_id)
         meta.is_live = False  # an imported file is a static reference, never "live"
         trace = _trace_from_records(records, session_id)
         return meta, trace
+
+    def _note_parse(self, path: str, skipped: int) -> None:
+        """Surface (or clear) a per-file parse warning after a resilient read."""
+        if skipped:
+            print(f"[claudecode] {path}: skipped {skipped} unreadable record(s)")
+            diagnostics.record(
+                "warning", path,
+                f"skipped {skipped} unreadable record(s)",
+                framework=self.alias, path=path, count=skipped,
+            )
+        else:
+            diagnostics.resolve(path)

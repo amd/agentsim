@@ -5,11 +5,23 @@
 //! Tauri invoke handlers backing the custom borderless title bar's window
 //! controls. Cloned 1:1 from reference/lemonade's window-control logic.
 
-use tauri::{AppHandle, Manager, WebviewWindow};
+use std::sync::Arc;
+
+use tauri::{AppHandle, Manager, State, WebviewWindow};
+
+use crate::server_process::ServerProcess;
 
 // Event channel: emitted on resize so the renderer can swap the maximize/restore
 // icon. The matching string lives in src/app/src/ui/MenuBar.ts — keep in sync.
 pub(crate) const MAXIMIZE_CHANGE: &str = "maximize-change";
+
+// Whether the embedded Python server child is currently alive. The frontend can
+// call this after a failed request to tell "server crashed" apart from a
+// transient/data failure; the supervisor restarts a dead child automatically.
+#[tauri::command]
+pub(crate) fn server_status(server: State<'_, Arc<ServerProcess>>) -> bool {
+    server.is_running()
+}
 
 fn main_window(app: &AppHandle) -> Option<WebviewWindow> {
     app.get_webview_window("main")

@@ -7,19 +7,25 @@ import { el } from "./dom.js";
 import { createMenuBar } from "./MenuBar.js";
 import { createSidebar } from "./Sidebar.js";
 import { createCanvas } from "./Canvas.js";
+import { createNotifications } from "./Notifications.js";
 import { openDataSourcesModal, handleDroppedPaths } from "./DataSourcesModal.js";
+import { openAboutModal } from "./AboutModal.js";
 import { menus } from "../data/menus.js";
 
 // Top-level layout: controls bar on top, then sidebar + canvas.
 // AppShell owns the toggleable panels and shows/hides them in response to the
 // View-menu toggle events (lemonade-style lifted visibility state).
 export function createAppShell(): HTMLElement {
+  // Mount the notification surface before the sidebar so its first load's
+  // failures/warnings have somewhere to land.
+  const notifications = createNotifications();
   const sidebar = createSidebar();
   const canvas = createCanvas();
 
   const shell = el("div", { class: "app-shell" }, [
     createMenuBar(menus),
     el("div", { class: "app-body" }, [sidebar, canvas]),
+    notifications,
   ]);
 
   const setVisible = (target: HTMLElement | null, visible: boolean) => {
@@ -35,6 +41,7 @@ export function createAppShell(): HTMLElement {
   window.addEventListener("view:timeline-miniature", onToggle(miniature));
 
   window.addEventListener("file:manage-data-sources", () => openDataSourcesModal());
+  window.addEventListener("help:about", () => openAboutModal());
 
   // Drag a file or folder anywhere in the window to stage it for import. The
   // webview delivers OS paths (not File objects), which feed the same

@@ -13,9 +13,42 @@ else in the server changes.
 
 import os
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from pathlib import Path
 
 from app.models import SessionMetadata, SessionTrace
+
+# Module-level metadata cache shared by every file-backed backend, keyed by
+# absolute path -> (st_mtime_ns, st_size, SessionMetadata). A metadata request
+# otherwise re-reads and re-parses *every* transcript on *every* poll; over a
+# watched ~/.claude that grows as Claude Code is used, that repeated full scan is
+# the performance cliff behind the "Cannot reach server." stalls. Module-level so
+# the ephemeral probes in detected_frameworks/validate_source hit the same cache
+# the long-lived backends populate.
+_metadata_cache: dict[str, tuple[int, int, SessionMetadata]] = {}
+
+
+def cached_metadata(path: str, build: Callable[[], SessionMetadata]) -> SessionMetadata:
+    """Return a transcript's metadata, reparsing only when the file changed.
+
+    ``build`` parses the file fresh and is called only on a cache miss (the file
+    is new or its mtime/size moved). Returns a *copy* on every call: the server
+    stamps per-request fields (source id, model_display, favorite) onto the
+    metadata, so handing out the shared cached instance would leak one source's
+    stamp into another's. ``is_live`` is intentionally left to the caller to
+    recompute, since it depends on wall-clock recency, not file content.
+    """
+    try:
+        st = os.stat(path)
+        signature = (st.st_mtime_ns, st.st_size)
+    except OSError:
+        return build()  # can't stat (racing deletion, permissions) -> don't cache
+    entry = _metadata_cache.get(path)
+    if entry is not None and (entry[0], entry[1]) == signature:
+        return entry[2].model_copy()
+    meta = build()
+    _metadata_cache[path] = (signature[0], signature[1], meta)
+    return meta.model_copy()
 
 
 class AgenticFramework(ABC):

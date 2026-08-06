@@ -18,6 +18,16 @@ const timeFmt = new Intl.DateTimeFormat(undefined, {
   minute: "2-digit",
 });
 
+// Format a session date, tolerating a missing/invalid value. Intl.format() on an
+// Invalid Date throws RangeError ("invalid time value") — a partial transcript
+// (no timestamped record) has an empty date, so guard it or the throw bubbles up
+// through renderGroups and gets mislabeled as a "/sessions" fetch failure.
+function formatDate(dateStr: string, showTime: boolean): string {
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return "";
+  return (showTime ? timeFmt : dateFmt).format(d);
+}
+
 // Three-dot "more options" icon (filled dots so they read at small sizes).
 const KEBAB_SVG =
   '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2.4"></circle><circle cx="12" cy="12" r="2.4"></circle><circle cx="19" cy="12" r="2.4"></circle></svg>';
@@ -389,7 +399,7 @@ export function createConversationBlock(
     el("div", { class: "conversation-meta" }, [
       el("span", {
         class: "conversation-date",
-        text: (showTime ? timeFmt : dateFmt).format(new Date(conversation.date)),
+        text: formatDate(conversation.date, showTime),
       }),
       tags,
     ]),

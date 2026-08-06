@@ -394,3 +394,85 @@
 .lm-slider::-moz-range-track { height: 4px; border-radius: var(--radius-pill); background: var(--bg-slider); }
 .lm-slider::-moz-range-progress { height: 4px; border-radius: var(--radius-pill); background: var(--lemon-amber); }
 .lm-slider::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; border: 1px solid var(--text-link-hover); background: var(--text-primary); }
+
+/* --- Notifications ------------------------------------------------------- */
+/* A fixed, bottom-right stack of persistent, dismissable failure notices.
+   Sits above everything so a data-source failure is visible over any view. */
+.notifications {
+    position: fixed;
+    bottom: 16px;
+    right: 16px;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-width: 380px;
+    pointer-events: none; /* let clicks through the gaps; items re-enable it */
+}
+
+.notification {
+    pointer-events: auto;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-primary);
+    background: var(--bg-secondary);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+    animation: notification-in 0.18s ease;
+}
+@keyframes notification-in {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.notification-error {
+    border-color: var(--error-border);
+    background: var(--status-error);
+}
+.notification-warning {
+    border-color: var(--status-connecting);
+    background: var(--status-connecting);
+}
+
+.notification-icon {
+    flex: 0 0 auto;
+    display: flex;
+    margin-top: 1px;
+}
+.notification-error .notification-icon { color: var(--on-status-error); }
+.notification-warning .notification-icon { color: var(--on-status-connecting); }
+
+.notification-text {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+.notification-title {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    word-break: break-word;
+}
+.notification-detail {
+    margin-top: 2px;
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+    word-break: break-word;
+}
+
+.notification-close {
+    flex: 0 0 auto;
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 0.85rem;
+    line-height: 1;
+    padding: 2px 4px;
+    border-radius: var(--radius-sm);
+}
+.notification-close:hover {
+    color: var(--text-primary);
+    background: var(--bg-hover);
+}

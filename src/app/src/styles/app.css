@@ -748,6 +748,35 @@ html, body {
     font-weight: 500;
 }
 
+/* Help > About: a compact info dialog on the shared .ds-overlay. */
+.about-modal {
+    width: 320px;
+}
+
+.about-name {
+    color: var(--text-primary);
+    font-weight: 600;
+    font-size: 0.95rem;
+    margin-bottom: 4px;
+}
+
+.about-line {
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+}
+
+.about-link {
+    display: inline-block;
+    margin-top: 8px;
+    color: var(--lemon-yellow);
+    font-size: 0.8rem;
+    text-decoration: none;
+}
+
+.about-link:hover {
+    text-decoration: underline;
+}
+
 .ds-picker-options {
     display: flex;
     flex-direction: column;
